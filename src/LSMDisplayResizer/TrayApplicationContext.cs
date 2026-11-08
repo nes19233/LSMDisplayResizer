@@ -3,6 +3,7 @@ using LSMDisplayResizer.Monitors;
 using LSMDisplayResizer.Settings;
 using LSMDisplayResizer.Tracking;
 using LSMDisplayResizer.UI;
+using LSMDisplayResizer.Wallpaper;
 using static LSMDisplayResizer.Interop.NativeMethods;
 
 namespace LSMDisplayResizer;
@@ -22,6 +23,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly RegisteredWaitHandle _activateWait;
     private readonly SynchronizationContext _uiContext;
     private readonly HotkeyManager _hotkey;
+    private readonly WallpaperService _wallpaper;
 
     private AppSettings _settings;
     private SettingsForm? _settingsForm;
@@ -63,6 +65,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         _tracker = new WindowTracker(_monitors, _settings);
         _tracker.Start();
+
+        _wallpaper = new WallpaperService(_monitors, () => _settings);
+        _wallpaper.Start();
 
         _hotkey = new HotkeyManager();
         _hotkey.Pressed += () => _tracker.AdjustNow(GetForegroundWindow());
@@ -110,7 +115,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 return;
             }
 
-            _settingsForm = new SettingsForm(_settings.Clone(), _monitors, ApplySettings, ShowLog);
+            _settingsForm = new SettingsForm(_settings.Clone(), _monitors, _wallpaper, ApplySettings, ShowLog);
             _settingsForm.FormClosed += (_, _) => _settingsForm = null;
             _settingsForm.Show();
             BringToFront(_settingsForm);
@@ -156,6 +161,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         bool saved = _store.Save(settings);
         Log.VerboseEnabled = settings.VerboseLog;
         _tracker.UpdateSettings(settings);
+        _wallpaper.NotifySettingsChanged();
         UpdateTrayState();
         string? hotkeyError = ApplyHotkey();
 
@@ -190,6 +196,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _activateWait.Unregister(null);
         _hotkey.Dispose();
         _tracker.Dispose();
+        _wallpaper.Dispose();
         _tray.Visible = false;
         _tray.Dispose();
         _menu.Dispose();

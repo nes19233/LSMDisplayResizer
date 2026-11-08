@@ -1,5 +1,6 @@
 using LSMDisplayResizer.Monitors;
 using LSMDisplayResizer.Settings;
+using LSMDisplayResizer.Wallpaper;
 
 namespace LSMDisplayResizer.UI;
 
@@ -31,11 +32,17 @@ internal sealed class SettingsForm : Form
     private readonly ListBox _excluded;
     private readonly ComboBox _cmbExclude;
 
+    // Hintergrundbild
+    private readonly WallpaperPage _wallpaperPage;
+    private readonly WallpaperService _wallpaper;
+
     private Keys _hotkey;
 
-    public SettingsForm(AppSettings settings, MonitorManager monitors, Func<AppSettings, string?> apply, Action showLog)
+    public SettingsForm(AppSettings settings, MonitorManager monitors, WallpaperService wallpaper,
+        Func<AppSettings, string?> apply, Action showLog)
     {
         _settings = settings;
+        _wallpaper = wallpaper;
         _monitors = monitors;
         _apply = apply;
         _hotkey = settings.Hotkey;
@@ -189,6 +196,10 @@ internal sealed class SettingsForm : Form
         exclTable.Controls.Add(Ui.Button("Entfernen", (_, _) => RemoveExcluded()), 2, exclTable.RowCount - 1);
 
         tabs.TabPages.Add(MakeTab("Ausschlussliste", exclTable));
+
+        // ---------------- Hintergrundbild ----------------
+        _wallpaperPage = new WallpaperPage(settings.Wallpaper, monitors, ApplyWallpaperAsync, RestoreWallpaperAsync);
+        tabs.TabPages.Add(MakeTab("Hintergrundbild", _wallpaperPage));
 
         // ---------------- Fußzeile ----------------
         var root = Ui.Table(1);
@@ -438,12 +449,18 @@ internal sealed class SettingsForm : Form
 
     private void Save()
     {
+        if (SaveSettings()) Close();
+    }
+
+    /// <summary>Übernimmt und speichert alle Eingaben. Rückgabe: true ohne Probleme.</summary>
+    private bool SaveSettings()
+    {
         if (_chkHotkey.Checked && !HotkeyManager.IsValid(_hotkey))
         {
             MessageBox.Show(this, "Bitte eine Tastenkombination festlegen oder das Tastenkürzel ausschalten.", Text,
                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
             _txtHotkey.Focus();
-            return;
+            return false;
         }
 
         // Noch nicht hinzugefügten Eintrag im Ausschlussfeld mitnehmen.
@@ -457,6 +474,7 @@ internal sealed class SettingsForm : Form
         if (HotkeyManager.IsValid(_hotkey)) _settings.Hotkey = _hotkey;
         _settings.VerboseLog = _chkVerbose.Checked;
         _settings.ExcludedProcesses = _excluded.Items.Cast<string>().ToList();
+        _wallpaperPage.SaveTo(_settings.Wallpaper);
 
         var problems = new List<string>();
         if (!Autostart.SetEnabled(_chkAutostart.Checked))
@@ -469,8 +487,55 @@ internal sealed class SettingsForm : Form
         {
             MessageBox.Show(this, string.Join(Environment.NewLine + Environment.NewLine, problems), Text,
                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            return; // Fenster offen lassen, damit man korrigieren kann – gespeichert ist trotzdem.
+            return false; // Fenster offen lassen, damit man korrigieren kann – gespeichert ist trotzdem.
         }
-        Close();
+        return true;
+    }
+
+    // ---------------- Hintergrundbild ----------------
+
+    private async Task ApplyWallpaperAsync()
+    {
+        _wallpaperPage.SaveTo(_settings.Wallpaper);
+        if (!_settings.Wallpaper.IsConfigured || !File.Exists(_settings.Wallpaper.SourceImage))
+        {
+            MessageBox.Show(this, "Bitte zuerst eine vorhandene Bilddatei auswählen.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+        SaveSettings();
+
+        _wallpaperPage.SetStatus("Hintergrundbild wird erstellt …");
+        try
+        {
+            _wallpaperPage.SetStatus(await _wallpaper.ApplyNowAsync(_settings.Wallpaper.Clone()));
+        }
+        catch (Exception ex)
+        {
+            Logging.Log.Error("Hintergrundbild konnte nicht gesetzt werden", ex);
+            _wallpaperPage.SetStatus($"Hintergrundbild konnte nicht gesetzt werden: {ex.Message}");
+        }
+    }
+
+    private Task RestoreWallpaperAsync()
+    {
+        try
+        {
+            // Automatik aus, sonst würde das gespannte Bild bei der nächsten Anzeigeänderung wieder gesetzt.
+            _wallpaperPage.SetAutoUpdate(false);
+            _wallpaperPage.SaveTo(_settings.Wallpaper);
+            SaveSettings();
+
+            bool restored = WallpaperSetter.RestoreBackup();
+            WallpaperService.ForgetLastApplied();
+            _wallpaperPage.SetStatus(restored
+                ? "Vorheriges Hintergrundbild wiederhergestellt. Die automatische Aktualisierung wurde ausgeschaltet."
+                : "Es ist kein gesichertes Hintergrundbild vorhanden.");
+        }
+        catch (Exception ex)
+        {
+            Logging.Log.Error("Hintergrundbild konnte nicht wiederhergestellt werden", ex);
+            _wallpaperPage.SetStatus($"Wiederherstellen fehlgeschlagen: {ex.Message}");
+        }
+        return Task.CompletedTask;
     }
 }

@@ -21,6 +21,8 @@ oft zu groß oder zu klein und muss jedes Mal von Hand neu aufgezogen werden. LS
 
 Außerdem:
 
+- Die App merkt sich die **letzte normale Größe** jedes Fensters. Wird ein Fenster maximiert, so auf einen anderen
+  Monitor verschoben und erst dort verkleinert, wird diese gemerkte Größe auf den neuen Monitor umgerechnet.
 - Das Fenster wird immer **vollständig im Arbeitsbereich** des Zielmonitors gehalten.
 - Die unsichtbaren Fensterränder von Windows 10/11 werden herausgerechnet – Größen beziehen sich auf den sichtbaren Rahmen.
 - Die App ist Per-Monitor-DPI-aware (V2), alle Größen sind echte Pixel.
@@ -83,6 +85,29 @@ sonst wird es nur vollständig in den Arbeitsbereich geholt. Standard: `Strg + A
 losgelassen wurde; nur die Größe ändert sich. Ohne diese Option wird – wie bei Win + Umschalt + Pfeil – auch die Position
 relativ übertragen.
 
+### Hintergrundbild über mehrere Monitore
+
+Registerkarte **Hintergrundbild**: Ein großes Bild wird so auf alle Monitore verteilt, dass es nahtlos ineinander
+übergeht, statt auf jedem Monitor doppelt zu erscheinen.
+
+1. Bild auswählen. Es sollte mindestens so breit sein wie alle Monitore zusammen, die Vorschau warnt, wenn es zu klein ist.
+2. Aufteilung wählen:
+   - **Nach physischer Größe** (empfohlen): Die Größe der Bildflächen wird aus den Monitordaten (EDID) gelesen.
+     So passen Übergänge auch bei unterschiedlich großen Monitoren oder unterschiedlicher Auflösung.
+     *Abstand* = Rahmenbreite zwischen den Bildflächen (dieser Teil des Bildes ist „hinter dem Rahmen“),
+     *Ausrichtung* und *Versatz* = wie die Monitore auf dem Tisch zueinander stehen. Alle Werte lassen sich anpassen.
+     Gedacht für nebeneinander stehende Monitore.
+   - **Nach Pixeln**: Aufteilung wie in den Windows-Anzeigeeinstellungen angeordnet, für jede Anordnung.
+3. **Speichern und als Hintergrund setzen.** Die App erzeugt ein Gesamtbild und setzt es im Windows-Modus „Spannen“
+   (nur für den angemeldeten Benutzer, ohne Adminrechte).
+
+Optional wird das Bild **automatisch neu erstellt**, wenn sich die Monitoranordnung ändert (z. B. Laptop an der
+Dockingstation). Beim ersten Setzen wird das bisherige Hintergrundbild gesichert und lässt sich mit
+**„Vorherigen Hintergrund wiederherstellen“** zurückholen.
+
+Grenzen: Gibt eine Gruppenrichtlinie das Hintergrundbild vor, überschreibt Windows es beim nächsten Anmelden (die App
+weist darauf hin). Das Bild wird mittig zugeschnitten. Diashow und Windows-Blickpunkt werden durch das feste Bild ersetzt.
+
 ### Dateien
 
 Alles liegt in `%AppData%\LSM Display Resizer\`:
@@ -91,6 +116,7 @@ Alles liegt in `%AppData%\LSM Display Resizer\`:
 |---|---|
 | `settings.json` | Einstellungen (kann bei beendeter App auch von Hand bearbeitet werden) |
 | `log.txt` | Log, max. ca. 1 MB, danach wird nach `log.old.txt` rotiert |
+| `Hintergrund\` | erzeugtes Gesamtbild und Sicherung des vorherigen Hintergrundbilds |
 
 Zusätzlich nur in `settings.json`: `debounceMilliseconds` (Standard 300) – Wartezeit nach einer Positionsänderung per
 Tastatur/Programm, bevor geprüft wird.
@@ -134,6 +160,7 @@ src/LSMDisplayResizer/
   Resizing/                   Größenberechnung, Regelauswahl, SetWindowPos
   Monitors/                   Monitorerkennung (EnumDisplayDevices, QueryDisplayConfig)
   Settings/                   Einstellungen (JSON), Autostart
+  Wallpaper/                  Hintergrundbild über mehrere Monitore (EDID, Aufteilung, Setzen)
   UI/                         Einstellungen, Regel-Dialog, Fensterauswahl, Log-Fenster
   Interop/                    P/Invoke-Deklarationen
 tests/LSMDisplayResizer.Tests/ xUnit-Tests

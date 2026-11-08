@@ -34,11 +34,15 @@ internal sealed class AppSettings
     /// <summary>Ausführliches Log, z. B. warum ein Fenster ignoriert wurde.</summary>
     public bool VerboseLog { get; set; }
 
+    /// <summary>Monitorübergreifendes Hintergrundbild.</summary>
+    public WallpaperSettings Wallpaper { get; set; } = new();
+
     public AppSettings Clone()
     {
         var copy = (AppSettings)MemberwiseClone();
         copy.Rules = Rules.Select(r => r.Clone()).ToList();
         copy.ExcludedProcesses = [.. ExcludedProcesses];
+        copy.Wallpaper = Wallpaper.Clone();
         return copy;
     }
 
@@ -56,6 +60,8 @@ internal sealed class AppSettings
             .ToList();
         DebounceMilliseconds = Math.Clamp(DebounceMilliseconds, 50, 5000);
         if (!Enum.IsDefined(Mode)) Mode = ResizeMode.Percent;
+        Wallpaper ??= new WallpaperSettings();
+        Wallpaper.Normalize();
     }
 
     /// <summary>"Game" → "game.exe", "C:\x\Game.EXE" → "game.exe", "*" bleibt "*".</summary>

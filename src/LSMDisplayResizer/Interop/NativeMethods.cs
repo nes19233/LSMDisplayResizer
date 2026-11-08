@@ -220,6 +220,15 @@ internal static class NativeMethods
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool UnregisterHotKey(IntPtr hWnd, int id);
 
+    // --- Hintergrundbild ---------------------------------------------------
+    public const uint SPI_SETDESKWALLPAPER = 0x0014;
+    public const uint SPIF_UPDATEINIFILE = 0x01;
+    public const uint SPIF_SENDWININICHANGE = 0x02;
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool SystemParametersInfo(uint uiAction, uint uiParam, string pvParam, uint fWinIni);
+
     // --- Prozesse ---------------------------------------------------------
     public const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
     public const int ERROR_ACCESS_DENIED = 5;
