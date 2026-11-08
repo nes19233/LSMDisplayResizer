@@ -164,9 +164,11 @@ Tastatur/Programm, bevor geprüft wird.
 - **Neue Fenster:** In den ersten ca. 1,5 Sekunden nach dem Öffnen greift die App nicht ein, weil viele Programme ihre
   gespeicherte Position selbst wiederherstellen.
 - **Anzeigeänderungen** (Laptop an-/abdocken, Monitor an-/abstecken, Standby): Windows räumt die Fenster zuerst selbst
-  um. Die App wartet ab (Standard 8 Sekunden, einstellbar, plus bis zu 10 Sekunden, bis keine Fenster mehr verschoben
-  werden) und passt dann alle Fenster, die auf einem anderen Monitor gelandet sind, ausgehend von ihrem Zustand
-  **vor** der Änderung an – Position und Größenverhältnis stimmen dann wieder. Abschaltbar unter Allgemein → Verhalten.
+  um, meldet aber nicht, wann es damit fertig ist. Die App erkennt das selbst: Jedes Fenster, das auf einem anderen
+  Monitor gelandet ist und 1 Sekunde lang nicht mehr bewegt wird, passt sie ausgehend von seinem Zustand **vor** der
+  Änderung an – Position und Größenverhältnis stimmen dann wieder, meist nach 2–3 Sekunden. Ruhen alle Fenster, prüft
+  ein letzter Durchgang auch Fenster ohne eigene Bewegung (z. B. nur andere Auflösung). Spätestens nach der Höchstdauer
+  (Standard 8 Sekunden, einstellbar) ist Schluss. Abschaltbar unter Allgemein → Verhalten.
 - **Angeordnete (Snap-)Fenster** bleiben unangetastet, solange sie angeordnet sind.
 - Im Modus *Prozentual* bewirkt das Tastenkürzel ohne passende feste Regel nur ein Einpassen in den Arbeitsbereich.
 - Fenster ohne veränderbaren Rahmen (z. B. feste Dialoge) werden nicht angepasst. Warum ein Fenster ignoriert wurde,

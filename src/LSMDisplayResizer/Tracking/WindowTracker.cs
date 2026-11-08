@@ -77,11 +77,17 @@ internal sealed class WindowTracker : IDisposable
     /// <summary>Nach einer eigenen Änderung werden Ereignisse dieses Fensters kurz nur protokolliert.</summary>
     private static readonly TimeSpan OwnChangeSuppression = TimeSpan.FromMilliseconds(800);
 
-    /// <summary>Nach der Wartezeit muss so lange Ruhe herrschen (keine Fensterbewegungen), bevor angepasst wird …</summary>
-    private static readonly TimeSpan WindowsCalmTime = TimeSpan.FromMilliseconds(1500);
+    // --- Anzeigeänderungen (An-/Abdocken) ---------------------------------------------------
+    // Windows meldet nicht, wann es mit dem Umräumen fertig ist. Stattdessen wird "Ruhe" erkannt:
 
-    /// <summary>… höchstens aber so lange über die Wartezeit hinaus.</summary>
-    private static readonly TimeSpan MaxExtraSettleTime = TimeSpan.FromSeconds(10);
+    /// <summary>Mindestzeit nach der (letzten) Anzeigeänderung – Docks melden oft mehrere Änderungen nacheinander.</summary>
+    private static readonly TimeSpan MinSettleTime = TimeSpan.FromSeconds(2);
+
+    /// <summary>Ein Fenster gilt als fertig umgeräumt, wenn es so lange nicht mehr bewegt wurde.</summary>
+    private static readonly TimeSpan WindowCalmTime = TimeSpan.FromSeconds(1);
+
+    /// <summary>Abschluss, wenn so lange gar kein Fenster mehr bewegt wurde (sonst nach der Höchstdauer aus den Einstellungen).</summary>
+    private static readonly TimeSpan GlobalCalmTime = TimeSpan.FromSeconds(2);
 
     private readonly MonitorManager _monitors;
     private readonly Dictionary<IntPtr, TrackedWindow> _windows = [];
@@ -94,10 +100,16 @@ internal sealed class WindowTracker : IDisposable
     private SynchronizationContext? _uiContext;
     private AppSettings _settings;
     private HashSet<string> _excluded;
-    private DateTime _quietUntil = DateTime.MinValue;
-    /// <summary>Anzeigeänderung läuft: Ausgangszustände einfrieren, danach einmal alle Fenster prüfen.</summary>
+    /// <summary>Anzeigeänderung läuft: Ausgangszustände eingefroren, Fenster werden nach und nach angepasst.</summary>
     private bool _relayoutPending;
+    private DateTime _displayChangeStarted;
+    private DateTime _minSettleUntil;
+    private DateTime _maxSettleUntil;
+    private int _adjustedThisChange;
+    /// <summary>Letzte fremde Fensterbewegung (eigene Anpassungen zählen nicht).</summary>
     private DateTime _lastLocationEvent = DateTime.MinValue;
+    /// <summary>Während einer Anzeigeänderung bewegte Fenster und Zeitpunkt ihrer letzten Bewegung.</summary>
+    private readonly Dictionary<IntPtr, DateTime> _movedDuringChange = [];
     private bool _disposed;
 
     public WindowTracker(MonitorManager monitors, AppSettings settings)
@@ -165,8 +177,14 @@ internal sealed class WindowTracker : IDisposable
                 case EVENT_OBJECT_LOCATIONCHANGE:
                     if (idObject != OBJID_WINDOW || idChild != CHILDID_SELF) return;
                     if (GetAncestor(hwnd, GA_ROOT) != hwnd) return;
-                    _lastLocationEvent = DateTime.UtcNow;
-                    if (_windows.TryGetValue(hwnd, out var moving) && moving.InMoveSize) return;
+                    _windows.TryGetValue(hwnd, out var moving);
+                    var moved = DateTime.UtcNow;
+                    if (moving == null || moved >= moving.SuppressUntil) // eigene Anpassungen nicht mitzählen
+                    {
+                        _lastLocationEvent = moved;
+                        if (_relayoutPending) _movedDuringChange[hwnd] = moved;
+                    }
+                    if (moving is { InMoveSize: true }) return;
                     Schedule(hwnd, Trigger.Location);
                     break;
 
@@ -221,14 +239,7 @@ internal sealed class WindowTracker : IDisposable
             }
         }
 
-        // Nach einer Anzeigeänderung: Wartezeit abgelaufen und Windows schiebt keine Fenster mehr (oder Höchstdauer erreicht)?
-        if (_relayoutPending && now >= _quietUntil &&
-            (now - _lastLocationEvent >= WindowsCalmTime || now - _quietUntil >= MaxExtraSettleTime))
-        {
-            _relayoutPending = false;
-            _pending.Clear();
-            RelayoutAfterDisplayChange();
-        }
+        if (_relayoutPending && now >= _minSettleUntil) SettleAfterDisplayChange(now);
 
         if (_pending.Count == 0 && !_relayoutPending) _debounceTimer.Stop();
     }
@@ -308,7 +319,6 @@ internal sealed class WindowTracker : IDisposable
         // Monitor hat gewechselt – prüfen, ob angepasst werden darf.
         string? blocked =
             !_settings.Enabled ? "pausiert" :
-            now < _quietUntil ? "Anzeigeänderung läuft" :
             now < tw.SuppressUntil ? "eigene Änderung" :
             now - tw.FirstSeen < NewWindowGrace ? "Fenster ist neu" :
             null;
@@ -480,62 +490,87 @@ internal sealed class WindowTracker : IDisposable
     }
 
     /// <summary>
-    /// Nach einer Anzeigeänderung (An-/Abdocken, Monitor ab-/angesteckt, Standby): Jedes normale Fenster, das jetzt
-    /// auf einem anderen Monitor liegt – oder dessen Monitor einen anderen Arbeitsbereich hat (z. B. andere Auflösung) –,
-    /// wird ausgehend von seinem Zustand vor der Änderung angepasst.
+    /// Läuft nach einer Anzeigeänderung (An-/Abdocken, Monitor ab-/angesteckt, Standby) bei jedem Timer-Tick, sobald
+    /// die Mindestzeit vorbei ist: Fenster, die Windows umgeräumt hat und die seit <see cref="WindowCalmTime"/> ruhen,
+    /// werden sofort angepasst. Ruhen alle Fenster seit <see cref="GlobalCalmTime"/> (spätestens nach der Höchstdauer),
+    /// prüft ein letzter Durchgang alle Fenster – auch solche ohne eigenes Ereignis (z. B. nur andere Auflösung).
     /// </summary>
-    private void RelayoutAfterDisplayChange()
+    private void SettleAfterDisplayChange(DateTime now)
     {
-        _monitors.Invalidate();
         bool adjust = _settings.Enabled && _settings.AdjustAfterDisplayChange;
-        int adjusted = 0, changed = 0;
 
-        foreach (var hwnd in WindowInspector.EnumerateTopLevelWindows())
+        foreach (var hwnd in _movedDuringChange.Where(p => now - p.Value >= WindowCalmTime).Select(p => p.Key).ToList())
         {
-            try
-            {
-                var reason = WindowInspector.Check(hwnd, _excluded, out var snap);
-                if (reason != SkipReason.None || snap == null)
-                {
-                    HandleSkipped(hwnd, reason, snap, Trigger.Snapshot);
-                    continue;
-                }
-
-                var monitor = _monitors.FromWindow(hwnd);
-                if (monitor == null || WindowInspector.IsFullScreen(snap, monitor.Bounds)) continue;
-
-                if (!_windows.TryGetValue(hwnd, out var tw) || !tw.HasNormalFrame)
-                {
-                    GetOrAdd(hwnd, DateTime.MinValue).Record(monitor, snap.FrameRect);
-                    continue;
-                }
-
-                bool otherMonitor = !string.Equals(tw.MonitorId, monitor.DeviceId, StringComparison.OrdinalIgnoreCase);
-                bool otherWorkArea = tw.WorkArea != monitor.WorkArea;
-                if (!otherMonitor && !otherWorkArea)
-                {
-                    tw.Record(monitor, snap.FrameRect);
-                    continue;
-                }
-
-                changed++;
-                var previous = new MonitorChange(tw.MonitorName, tw.WorkArea, tw.Frame);
-                tw.Record(monitor, snap.FrameRect);
-                if (!adjust) continue;
-
-                OnMonitorChanged(snap, previous, monitor, byDrag: false, tw);
-                adjusted++;
-            }
-            catch (Exception ex)
-            {
-                Log.Error($"Fehler bei Fenster 0x{hwnd.ToInt64():X} nach der Anzeigeänderung", ex);
-            }
+            _movedDuringChange.Remove(hwnd);
+            _pending.Remove(hwnd);
+            if (AdjustAfterDisplayChange(hwnd, adjust)) _adjustedThisChange++;
         }
 
+        bool calm = now - _lastLocationEvent >= GlobalCalmTime;
+        if (!calm && now < _maxSettleUntil) return;
+
+        _relayoutPending = false;
+        _movedDuringChange.Clear();
+        _pending.Clear();
+        _monitors.Invalidate();
+        foreach (var hwnd in WindowInspector.EnumerateTopLevelWindows())
+        {
+            if (AdjustAfterDisplayChange(hwnd, adjust)) _adjustedThisChange++;
+        }
+
+        string how = calm ? "alle Fenster ruhen" : "Höchstdauer erreicht";
         Log.Info(adjust
-            ? $"Anzeigeänderung abgeschlossen: {adjusted} Fenster angepasst ({_monitors.GetAll().Count} Monitor(e))"
-            : $"Anzeigeänderung abgeschlossen: {changed} Fenster verschoben, nicht angepasst " +
+            ? $"Anzeigeänderung abgeschlossen nach {(now - _displayChangeStarted).TotalSeconds:0.0} s ({how}): " +
+              $"{_adjustedThisChange} Fenster angepasst, {_monitors.GetAll().Count} Monitor(e)"
+            : $"Anzeigeänderung abgeschlossen ({how}), Fenster nicht angepasst " +
               $"({(_settings.Enabled ? "Anpassung nach Anzeigeänderungen ausgeschaltet" : "pausiert")})");
+    }
+
+    /// <summary>
+    /// Passt ein Fenster nach einer Anzeigeänderung an, falls es jetzt auf einem anderen Monitor liegt oder sein Monitor
+    /// einen anderen Arbeitsbereich hat – ausgehend vom gemerkten Zustand vor der Änderung. Rückgabe: angepasst.
+    /// </summary>
+    private bool AdjustAfterDisplayChange(IntPtr hwnd, bool adjust)
+    {
+        try
+        {
+            var reason = WindowInspector.Check(hwnd, _excluded, out var snap);
+            if (reason != SkipReason.None || snap == null)
+            {
+                if (reason == SkipReason.Invalid) _windows.Remove(hwnd);
+                else HandleSkipped(hwnd, reason, snap, Trigger.Snapshot);
+                return false;
+            }
+
+            var monitor = _monitors.FromWindow(hwnd);
+            if (monitor == null || WindowInspector.IsFullScreen(snap, monitor.Bounds)) return false;
+
+            if (!_windows.TryGetValue(hwnd, out var tw) || !tw.HasNormalFrame)
+            {
+                GetOrAdd(hwnd, DateTime.MinValue).Record(monitor, snap.FrameRect);
+                return false;
+            }
+
+            bool otherMonitor = !string.Equals(tw.MonitorId, monitor.DeviceId, StringComparison.OrdinalIgnoreCase);
+            bool otherWorkArea = tw.WorkArea != monitor.WorkArea;
+            if (!otherMonitor && !otherWorkArea)
+            {
+                tw.Record(monitor, snap.FrameRect);
+                return false;
+            }
+
+            var previous = new MonitorChange(tw.MonitorName, tw.WorkArea, tw.Frame);
+            tw.Record(monitor, snap.FrameRect);
+            if (!adjust) return false;
+
+            OnMonitorChanged(snap, previous, monitor, byDrag: false, tw);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"Fehler bei Fenster 0x{hwnd.ToInt64():X} nach der Anzeigeänderung", ex);
+            return false;
+        }
     }
 
     private void RemoveDeadWindows()
@@ -567,13 +602,25 @@ internal sealed class WindowTracker : IDisposable
         ctx.Post(_ => SafeRun(() =>
         {
             if (_disposed) return;
-            int seconds = _settings.DisplayChangeDelaySeconds;
-            Log.Info($"{reason} – warte {seconds} s, bis Windows die Fenster umgeräumt hat");
+            var now = DateTime.UtcNow;
+            int maxSeconds = _settings.DisplayChangeDelaySeconds;
             _monitors.Invalidate();
-            // Jede weitere Meldung (Docks melden oft mehrere Änderungen nacheinander) verlängert die Wartezeit.
-            _quietUntil = DateTime.UtcNow + TimeSpan.FromSeconds(seconds);
+
+            if (!_relayoutPending)
+            {
+                _displayChangeStarted = now;
+                _adjustedThisChange = 0;
+                _movedDuringChange.Clear();
+                _maxSettleUntil = DateTime.MinValue;
+            }
+
+            // Jede weitere Meldung (Docks melden oft mehrere Änderungen nacheinander) verlängert Mindest- und Höchstdauer.
+            _minSettleUntil = now + (MinSettleTime < TimeSpan.FromSeconds(maxSeconds) ? MinSettleTime : TimeSpan.FromSeconds(maxSeconds));
+            var max = now + TimeSpan.FromSeconds(maxSeconds);
+            if (max > _maxSettleUntil) _maxSettleUntil = max;
             _relayoutPending = true;
             _debounceTimer.Start();
+            Log.Info($"{reason} – passe umgeräumte Fenster an, sobald sie ruhen (höchstens {maxSeconds} s)");
         }), null);
     }
 

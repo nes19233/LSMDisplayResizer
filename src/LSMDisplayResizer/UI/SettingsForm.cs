@@ -91,7 +91,7 @@ internal sealed class SettingsForm : Form
                                    "Bei Win+Umschalt+Pfeil wird die Position immer relativ übertragen.", hint: true, indent: 20));
 
         var dockRow = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = Padding.Empty };
-        _chkAfterDisplayChange = Ui.Check("Nach An-/Abdocken und Monitorwechseln Fenster anpassen, Wartezeit:");
+        _chkAfterDisplayChange = Ui.Check("Nach An-/Abdocken und Monitorwechseln Fenster anpassen, höchstens warten:");
         _chkAfterDisplayChange.Margin = new Padding(3, 6, 6, 3);
         _numDisplayDelay = new NumericUpDown { Width = 60, Minimum = 2, Maximum = 60, TextAlign = HorizontalAlignment.Right, Margin = new Padding(3, 3, 3, 3) };
         dockRow.Controls.Add(_chkAfterDisplayChange);
@@ -99,8 +99,9 @@ internal sealed class SettingsForm : Form
         dockRow.Controls.Add(new Label { Text = "Sekunden", AutoSize = true, Margin = new Padding(3, 6, 3, 3) });
         Ui.AddRow(general, dockRow);
         Ui.AddRow(general, Ui.Text("Wird z. B. der Laptop von der Dockingstation abgezogen, räumt Windows die Fenster auf die verbliebenen " +
-                                   "Monitore um. Nach der Wartezeit passt die App sie ausgehend von ihrem Zustand vorher an, sodass " +
-                                   "Position und Größenverhältnis wieder stimmen. Bei langsamen Docks die Wartezeit erhöhen.",
+                                   "Monitore um. Sobald ein Fenster nicht mehr bewegt wird, passt die App es ausgehend von seinem Zustand " +
+                                   "vorher an, sodass Position und Größenverhältnis wieder stimmen – meist nach 2–3 Sekunden. Die Höchstdauer " +
+                                   "greift nur, wenn Windows nicht zur Ruhe kommt.",
             hint: true, indent: 20));
 
         var hotkeyRow = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = Padding.Empty };
