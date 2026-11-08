@@ -306,7 +306,8 @@ internal sealed class WallpaperPage : UserControl
             {
                 var m = (MonitorDescriptor)r.Tag!;
                 return new MonitorLayoutInput(m.DeviceId, m.DisplayName, m.Bounds,
-                    Math.Max(50, Cell(r, Col.Width)), Math.Max(50, Cell(r, Col.Height)), Cell(r, Col.Offset));
+                    Math.Max(50, Cell(r, Col.Width)), Math.Max(50, Cell(r, Col.Height)), Cell(r, Col.Offset),
+                    EdidReader.ReadDeviceSerial(m.DeviceId));
             })
             .ToList();
 
@@ -481,6 +482,16 @@ internal sealed class WallpaperPage : UserControl
             parts.Add(layout.Warning);
             warn = true;
         }
+        if (layout.EffectiveMode == WallpaperMode.Physical)
+        {
+            var sorted = layout.Slices.Select(s => s.Monitor).OrderBy(m => m.PixelBounds.Left).ToList();
+            var shared = sorted.Zip(sorted.Skip(1))
+                .Where(p => p.First.IsSameDeviceAs(p.Second))
+                .Select(p => $"{ShortName(p.First)} und {ShortName(p.Second)}")
+                .ToList();
+            if (shared.Count > 0)
+                parts.Add($"{string.Join(", ", shared)} sind Bildflächen desselben Monitors (Bild-neben-Bild) – dazwischen wird kein Rahmen abgezogen.");
+        }
         if (WallpaperSetter.GetPolicyHint() is { } policy)
         {
             parts.Add(policy);
@@ -489,6 +500,15 @@ internal sealed class WallpaperPage : UserControl
 
         _lblStatus.Text = string.Join(" ", parts);
         _lblStatus.ForeColor = warn ? Color.DarkGoldenrod : SystemColors.GrayText;
+    }
+
+    /// <summary>"DELL U3425WE – DISPLAY1 (…)" → "DISPLAY1"</summary>
+    private static string ShortName(MonitorLayoutInput m)
+    {
+        int dash = m.Name.IndexOf(" – ", StringComparison.Ordinal);
+        string rest = dash >= 0 ? m.Name[(dash + 3)..] : m.Name;
+        int paren = rest.IndexOf(" (", StringComparison.Ordinal);
+        return paren >= 0 ? rest[..paren] : rest;
     }
 
     private async Task RunBusy(Func<Task> action)

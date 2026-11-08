@@ -171,7 +171,8 @@ internal sealed class WallpaperService : IDisposable
         monitors.Select(m =>
         {
             var size = GetPhysicalSize(m, ws);
-            return new MonitorLayoutInput(m.DeviceId, m.DisplayName, m.Bounds, size.WidthMm, size.HeightMm, size.OffsetYMm);
+            return new MonitorLayoutInput(m.DeviceId, m.DisplayName, m.Bounds, size.WidthMm, size.HeightMm, size.OffsetYMm,
+                EdidReader.ReadDeviceSerial(m.DeviceId));
         }).ToList();
 
     public static PhysicalSizeInfo GetPhysicalSize(MonitorDescriptor monitor, WallpaperSettings ws)
@@ -220,7 +221,7 @@ internal sealed class WallpaperService : IDisposable
         {
             sb.Append('|').Append(m.Id).Append(';').Append(m.PixelBounds)
               .Append(';').Append(m.WidthMm.ToString(inv)).Append(';').Append(m.HeightMm.ToString(inv))
-              .Append(';').Append(m.OffsetYMm.ToString(inv));
+              .Append(';').Append(m.OffsetYMm.ToString(inv)).Append(';').Append(m.DeviceSerial);
         }
         return sb.ToString();
     }

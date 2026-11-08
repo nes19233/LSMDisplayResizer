@@ -71,6 +71,50 @@ public class WallpaperLayoutTests
     }
 
     [Fact]
+    public void Physical_SameDevice_PictureByPicture_HasNoGap()
+    {
+        // Ein Ultrawide-Monitor im Bild-neben-Bild-Modus: zwei Eingänge, gleiche Seriennummer
+        var left = new MonitorLayoutInput("A", "A", new Rectangle(0, 0, 1720, 1440), 400, 335, 0, "DEL:BLS34Z3");
+        var right = new MonitorLayoutInput("B", "B", new Rectangle(1720, 0, 1720, 1440), 400, 335, 0, "DEL:BLS34Z3");
+
+        var rects = WallpaperLayout.PhysicalRects([left, right], 15, WallpaperAlignment.Center);
+
+        Assert.Equal(rects[0].Right, rects[1].Left, 3);
+    }
+
+    [Fact]
+    public void Physical_DifferentDevices_KeepGap()
+    {
+        var left = new MonitorLayoutInput("A", "A", new Rectangle(0, 0, 1920, 1080), 531, 299, 0, "DEL:AAA111");
+        var right = new MonitorLayoutInput("B", "B", new Rectangle(1920, 0, 1920, 1080), 531, 299, 0, "DEL:BBB222");
+        var unknown = new MonitorLayoutInput("C", "C", new Rectangle(3840, 0, 1920, 1080), 531, 299, 0);
+
+        var rects = WallpaperLayout.PhysicalRects([left, right, unknown], 15, WallpaperAlignment.Center);
+
+        Assert.Equal(15, rects[1].Left - rects[0].Right, 3);
+        Assert.Equal(15, rects[2].Left - rects[1].Right, 3); // ohne Seriennummer: sicherheitshalber Rahmen
+    }
+
+    [Fact]
+    public void Edid_ParsesSerialDescriptor_AndNumericFallback()
+    {
+        var edid = new byte[128];
+        edid[1] = edid[2] = edid[3] = edid[4] = edid[5] = edid[6] = 0xFF;
+        edid[8] = 0x10; edid[9] = 0xAC;              // "DEL"
+        // Deskriptor 2 (Byte 72): 00 00 00 FF 00 + "BLS34Z3\n"
+        edid[75] = 0xFF;
+        System.Text.Encoding.ASCII.GetBytes("BLS34Z3\n     ").CopyTo(edid, 77);
+        Assert.Equal("DEL:BLS34Z3", EdidReader.ParseDeviceSerial(edid));
+
+        edid[75] = 0;                                // kein Text-Deskriptor → 32-Bit-Nummer
+        BitConverter.GetBytes(809848405u).CopyTo(edid, 12);
+        Assert.Equal("DEL:#809848405", EdidReader.ParseDeviceSerial(edid));
+
+        BitConverter.GetBytes(0x01010101u).CopyTo(edid, 12); // Platzhalter
+        Assert.Null(EdidReader.ParseDeviceSerial(edid));
+    }
+
+    [Fact]
     public void Physical_OffsetMovesMonitorDown()
     {
         var lowered = Small with { OffsetYMm = 10 };

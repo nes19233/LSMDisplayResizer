@@ -8,13 +8,20 @@ namespace LSMDisplayResizer.Wallpaper;
 /// <param name="WidthMm">Breite der sichtbaren Bildfläche in mm (in der aktuellen Ausrichtung).</param>
 /// <param name="HeightMm">Höhe der sichtbaren Bildfläche in mm.</param>
 /// <param name="OffsetYMm">Vertikaler Versatz in mm (positiv = tiefer).</param>
+/// <param name="DeviceSerial">Kennung des physischen Geräts (EDID). Gleiche Kennung = Bildflächen desselben Monitors
+/// (Bild-neben-Bild), zwischen ihnen gibt es keinen Rahmen.</param>
 internal sealed record MonitorLayoutInput(
     string Id,
     string Name,
     Rectangle PixelBounds,
     double WidthMm,
     double HeightMm,
-    double OffsetYMm);
+    double OffsetYMm,
+    string? DeviceSerial = null)
+{
+    public bool IsSameDeviceAs(MonitorLayoutInput other) =>
+        !string.IsNullOrEmpty(DeviceSerial) && string.Equals(DeviceSerial, other.DeviceSerial, StringComparison.OrdinalIgnoreCase);
+}
 
 /// <summary>Ergebnis der Aufteilung: welcher Bildausschnitt auf welchem Monitor landet.</summary>
 internal sealed record MonitorSlice(MonitorLayoutInput Monitor, RectangleF SourceRect)
@@ -91,9 +98,13 @@ internal static class WallpaperLayout
     {
         var result = new RectangleF[monitors.Count];
         double x = 0;
+        MonitorLayoutInput? previous = null;
         foreach (int i in Enumerable.Range(0, monitors.Count).OrderBy(i => monitors[i].PixelBounds.Left))
         {
             var m = monitors[i];
+            // Kein Rahmen zwischen zwei Bildflächen desselben Monitors (Bild-neben-Bild).
+            if (previous != null && !previous.IsSameDeviceAs(m)) x += gapMm;
+            previous = m;
             double y = alignment switch
             {
                 WallpaperAlignment.Top => 0,
@@ -101,7 +112,7 @@ internal static class WallpaperLayout
                 _ => -m.HeightMm / 2,
             } + m.OffsetYMm;
             result[i] = new RectangleF((float)x, (float)y, (float)m.WidthMm, (float)m.HeightMm);
-            x += m.WidthMm + gapMm;
+            x += m.WidthMm;
         }
         return [.. result];
     }
