@@ -52,9 +52,10 @@ jobs:
           Copy-Item publish/LSMDisplayResizer.exe "dist/LSMDisplayResizer-$env:VERSION-win-x64.exe"
           $msi = Get-ChildItem installer/bin -Recurse -Filter LSMDisplayResizer.msi | Select-Object -First 1
           Copy-Item $msi.FullName "dist/LSMDisplayResizer-$env:VERSION-win-x64.msi"
-          Get-ChildItem dist -Filter 'LSMDisplayResizer-*' | Get-FileHash -Algorithm SHA256 |
-            ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" } |
-            Set-Content dist/SHA256SUMS.txt
+          # Unix-Zeilenenden, damit "sha256sum -c SHA256SUMS.txt" auch unter Linux/macOS funktioniert
+          $lines = Get-ChildItem dist -Filter 'LSMDisplayResizer-*' | Get-FileHash -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" }
+          [IO.File]::WriteAllText("$PWD/dist/SHA256SUMS.txt", ($lines -join "`n") + "`n")
 
       - name: Release erstellen
         uses: softprops/action-gh-release@v3
