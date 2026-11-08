@@ -23,6 +23,11 @@ internal sealed class AppSettings
     /// <summary>Prozessnamen (z. B. "game.exe"), deren Fenster nie angepasst werden.</summary>
     public List<string> ExcludedProcesses { get; set; } = [];
 
+    /// <summary>Globales Tastenkürzel für die manuelle Anpassung des aktiven Fensters.</summary>
+    public bool HotkeyEnabled { get; set; }
+
+    public Keys Hotkey { get; set; } = Keys.Control | Keys.Alt | Keys.R;
+
     /// <summary>Wartezeit nach der letzten Positionsänderung (Tastatur/Programm), bevor geprüft wird.</summary>
     public int DebounceMilliseconds { get; set; } = 300;
 
