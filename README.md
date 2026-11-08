@@ -124,9 +124,10 @@ Registerkarte **Hintergrundbild**: Ein großes Bild wird so auf alle Monitore ve
 2. Aufteilung wählen:
    - **Nach physischer Größe** (empfohlen): Die Größe der Bildflächen wird aus den Monitordaten (EDID) gelesen.
      So passen Übergänge auch bei unterschiedlich großen Monitoren oder unterschiedlicher Auflösung.
-     *Abstand* = Rahmenbreite zwischen den Bildflächen (dieser Teil des Bildes ist „hinter dem Rahmen“). Zwischen zwei
-     Bildflächen **desselben** Monitors (Bild-neben-Bild, z. B. ein Ultrawide an zwei Eingängen) entfällt er
-     automatisch – erkannt an der gleichen Seriennummer in den Monitordaten.
+     *Rahmenkorrektur* (optional, Standard 0 mm = die Bilder stoßen direkt aneinander): Breite der Gehäuseränder
+     zwischen den Bildflächen. Dann wird der Bildstreifen „hinter dem Rahmen“ ausgelassen, sodass schräge Linien über
+     die Monitorgrenze in der Flucht weiterlaufen. Zwischen zwei Bildflächen **desselben** Monitors (Bild-neben-Bild,
+     z. B. ein Ultrawide an zwei Eingängen) entfällt sie immer – erkannt an der gleichen Seriennummer in den Monitordaten.
      *Ausrichtung* und *Versatz* = wie die Monitore auf dem Tisch zueinander stehen. Alle Werte lassen sich anpassen.
      Gedacht für nebeneinander stehende Monitore.
    - **Nach Pixeln**: Aufteilung wie in den Windows-Anzeigeeinstellungen angeordnet, für jede Anordnung.

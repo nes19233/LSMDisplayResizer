@@ -44,8 +44,11 @@ internal sealed class WallpaperSettings
 
     public WallpaperMode Mode { get; set; } = WallpaperMode.Physical;
 
-    /// <summary>Abstand zwischen den Bildflächen nebeneinander stehender Monitore (Rahmen beider Monitore) in mm.</summary>
-    public double GapMm { get; set; } = 15;
+    /// <summary>
+    /// Optionale Rahmenkorrektur: Abstand zwischen den Bildflächen nebeneinander stehender Monitore in mm.
+    /// Standard 0 = Bilder stoßen direkt aneinander.
+    /// </summary>
+    public double GapMm { get; set; } = 0;
 
     public WallpaperAlignment Alignment { get; set; } = WallpaperAlignment.Center;
 
@@ -69,7 +72,7 @@ internal sealed class WallpaperSettings
         SourceImage ??= string.Empty;
         if (!Enum.IsDefined(Mode)) Mode = WallpaperMode.Physical;
         if (!Enum.IsDefined(Alignment)) Alignment = WallpaperAlignment.Center;
-        GapMm = Math.Clamp(double.IsFinite(GapMm) ? GapMm : 15, 0, 300);
+        GapMm = Math.Clamp(double.IsFinite(GapMm) ? GapMm : 0, 0, 300);
         Monitors = (Monitors ?? []).Where(m => m != null && !string.IsNullOrWhiteSpace(m.MonitorId)).ToList();
         foreach (var m in Monitors)
         {

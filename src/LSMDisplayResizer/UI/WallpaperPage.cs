@@ -89,7 +89,7 @@ internal sealed class WallpaperPage : UserControl
         _numGap = new NumericUpDown { Width = 70, Minimum = 0, Maximum = 300, DecimalPlaces = 0, TextAlign = HorizontalAlignment.Right };
         _cmbAlign = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 130 };
         _cmbAlign.Items.AddRange(["Oben bündig", "Mittig", "Unten bündig"]);
-        physicalRow.Controls.Add(FlowLabel("Abstand zwischen den Bildflächen (Rahmen):"));
+        physicalRow.Controls.Add(FlowLabel("Rahmenkorrektur (optional):"));
         physicalRow.Controls.Add(_numGap);
         physicalRow.Controls.Add(FlowLabel("mm"));
         physicalRow.Controls.Add(FlowLabel("    Ausrichtung:"));
@@ -124,6 +124,10 @@ internal sealed class WallpaperPage : UserControl
         gridButtons.Controls.Add(_btnRedetect);
         gridButtons.Controls.Add(FlowLabel("Sichtbare Bildfläche ohne Rahmen. Versatz: positiv = Monitor steht tiefer."));
         Ui.AddRow(table, gridButtons);
+        Ui.AddRow(table, Ui.Text("Rahmenkorrektur: Standard 0 mm – die Bilder stoßen direkt aneinander. Optional lässt sich die Breite der " +
+                                 "Gehäuseränder angeben; dann wird der Bildstreifen „hinter dem Rahmen“ ausgelassen, sodass schräge Linien " +
+                                 "über die Monitorgrenze in der Flucht weiterlaufen. Zwischen Hälften desselben Monitors (Bild-neben-Bild) entfällt sie immer.",
+            hint: true));
 
         // --- Vorschau ---
         Ui.AddRow(table, Ui.Heading("Vorschau"));
