@@ -28,6 +28,15 @@ internal sealed class AppSettings
 
     public Keys Hotkey { get; set; } = Keys.Control | Keys.Alt | Keys.R;
 
+    /// <summary>
+    /// Nach Anzeigeänderungen (An-/Abdocken, Monitor ab-/angesteckt, Standby) Fenster, die Windows auf einen
+    /// anderen Monitor geschoben hat, anpassen – ausgehend von ihrem Zustand vor der Änderung.
+    /// </summary>
+    public bool AdjustAfterDisplayChange { get; set; } = true;
+
+    /// <summary>Wartezeit nach einer Anzeigeänderung, bis Windows die Fenster umgeräumt hat.</summary>
+    public int DisplayChangeDelaySeconds { get; set; } = 8;
+
     /// <summary>Wartezeit nach der letzten Positionsänderung (Tastatur/Programm), bevor geprüft wird.</summary>
     public int DebounceMilliseconds { get; set; } = 300;
 
@@ -59,6 +68,7 @@ internal sealed class AppSettings
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
         DebounceMilliseconds = Math.Clamp(DebounceMilliseconds, 50, 5000);
+        DisplayChangeDelaySeconds = Math.Clamp(DisplayChangeDelaySeconds, 2, 60);
         if (!Enum.IsDefined(Mode)) Mode = ResizeMode.Percent;
         Wallpaper ??= new WallpaperSettings();
         Wallpaper.Normalize();

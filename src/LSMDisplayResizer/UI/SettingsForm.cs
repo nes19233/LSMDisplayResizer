@@ -17,6 +17,8 @@ internal sealed class SettingsForm : Form
     private readonly RadioButton _radRules;
     private readonly CheckBox _chkFallback;
     private readonly CheckBox _chkKeepDrop;
+    private readonly CheckBox _chkAfterDisplayChange;
+    private readonly NumericUpDown _numDisplayDelay;
     private readonly CheckBox _chkHotkey;
     private readonly TextBox _txtHotkey;
     private readonly CheckBox _chkAutostart;
@@ -87,6 +89,19 @@ internal sealed class SettingsForm : Form
         Ui.AddRow(general, _chkKeepDrop);
         Ui.AddRow(general, Ui.Text("Nur die Größe ändert sich, die linke obere Ecke bleibt, wo das Fenster losgelassen wurde. " +
                                    "Bei Win+Umschalt+Pfeil wird die Position immer relativ übertragen.", hint: true, indent: 20));
+
+        var dockRow = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = Padding.Empty };
+        _chkAfterDisplayChange = Ui.Check("Nach An-/Abdocken und Monitorwechseln Fenster anpassen, Wartezeit:");
+        _chkAfterDisplayChange.Margin = new Padding(3, 6, 6, 3);
+        _numDisplayDelay = new NumericUpDown { Width = 60, Minimum = 2, Maximum = 60, TextAlign = HorizontalAlignment.Right, Margin = new Padding(3, 3, 3, 3) };
+        dockRow.Controls.Add(_chkAfterDisplayChange);
+        dockRow.Controls.Add(_numDisplayDelay);
+        dockRow.Controls.Add(new Label { Text = "Sekunden", AutoSize = true, Margin = new Padding(3, 6, 3, 3) });
+        Ui.AddRow(general, dockRow);
+        Ui.AddRow(general, Ui.Text("Wird z. B. der Laptop von der Dockingstation abgezogen, räumt Windows die Fenster auf die verbliebenen " +
+                                   "Monitore um. Nach der Wartezeit passt die App sie ausgehend von ihrem Zustand vorher an, sodass " +
+                                   "Position und Größenverhältnis wieder stimmen. Bei langsamen Docks die Wartezeit erhöhen.",
+            hint: true, indent: 20));
 
         var hotkeyRow = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = Padding.Empty };
         _chkHotkey = Ui.Check("Tastenkürzel für das aktive Fenster:");
@@ -273,6 +288,10 @@ internal sealed class SettingsForm : Form
         _radRules.Checked = _settings.Mode == ResizeMode.FixedRules;
         _chkFallback.Checked = _settings.PercentFallbackWithoutRule;
         _chkKeepDrop.Checked = _settings.KeepDropPositionOnDrag;
+        _chkAfterDisplayChange.Checked = _settings.AdjustAfterDisplayChange;
+        _numDisplayDelay.Value = Math.Clamp(_settings.DisplayChangeDelaySeconds, 2, 60);
+        _numDisplayDelay.Enabled = _chkAfterDisplayChange.Checked;
+        _chkAfterDisplayChange.CheckedChanged += (_, _) => _numDisplayDelay.Enabled = _chkAfterDisplayChange.Checked;
         _chkHotkey.Checked = _settings.HotkeyEnabled;
         _txtHotkey.Enabled = _settings.HotkeyEnabled;
         ShowHotkey();
@@ -499,6 +518,8 @@ internal sealed class SettingsForm : Form
         _settings.Mode = _radRules.Checked ? ResizeMode.FixedRules : ResizeMode.Percent;
         _settings.PercentFallbackWithoutRule = _chkFallback.Checked;
         _settings.KeepDropPositionOnDrag = _chkKeepDrop.Checked;
+        _settings.AdjustAfterDisplayChange = _chkAfterDisplayChange.Checked;
+        _settings.DisplayChangeDelaySeconds = (int)_numDisplayDelay.Value;
         _settings.HotkeyEnabled = _chkHotkey.Checked;
         if (HotkeyManager.IsValid(_hotkey)) _settings.Hotkey = _hotkey;
         _settings.VerboseLog = _chkVerbose.Checked;

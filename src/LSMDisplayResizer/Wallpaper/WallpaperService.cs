@@ -55,7 +55,8 @@ internal sealed class WallpaperService : IDisposable
     private void OnDisplaySettingsChanged(object? sender, EventArgs e) =>
         _uiContext?.Post(_ =>
         {
-            if (!_disposed) Schedule(4000); // Windows ordnet nach Anzeigeänderungen noch einige Sekunden um
+            // Windows ordnet nach Anzeigeänderungen noch einige Sekunden um – dieselbe Wartezeit wie für die Fenster.
+            if (!_disposed) Schedule(_getSettings().DisplayChangeDelaySeconds * 1000);
         }, null);
 
     private void Schedule(int milliseconds)

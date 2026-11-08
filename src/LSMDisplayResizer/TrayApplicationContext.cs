@@ -69,6 +69,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _wallpaper = new WallpaperService(_monitors, () => _settings);
         _wallpaper.Start();
 
+#if DEBUG
+        // Nur Debug-Build: Anzeigeänderung von außen simulieren (Tests ohne echtes An-/Abdocken).
+        var simulate = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\LSMDisplayResizer.Debug.SimulateDisplayChange");
+        ThreadPool.RegisterWaitForSingleObject(simulate, (_, _) => _tracker.SimulateDisplayChange(), null, Timeout.Infinite, false);
+#endif
+
         _hotkey = new HotkeyManager();
         _hotkey.Pressed += () => _tracker.AdjustNow(GetForegroundWindow());
         ApplyHotkey();

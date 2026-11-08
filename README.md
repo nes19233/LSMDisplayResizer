@@ -163,8 +163,10 @@ Tastatur/Programm, bevor geprüft wird.
 - **Mindest-/Höchstgrößen:** Manche Programme erzwingen eigene Grenzen; dann wird die nächstmögliche Größe verwendet (siehe Log).
 - **Neue Fenster:** In den ersten ca. 1,5 Sekunden nach dem Öffnen greift die App nicht ein, weil viele Programme ihre
   gespeicherte Position selbst wiederherstellen.
-- **Anzeigeänderungen:** Nach An-/Abstecken eines Monitors, Sperren/Entsperren oder Standby pausiert die Anpassung
-  ca. 3 Sekunden, damit von Windows verschobene Fenster nicht verändert werden.
+- **Anzeigeänderungen** (Laptop an-/abdocken, Monitor an-/abstecken, Standby): Windows räumt die Fenster zuerst selbst
+  um. Die App wartet ab (Standard 8 Sekunden, einstellbar, plus bis zu 10 Sekunden, bis keine Fenster mehr verschoben
+  werden) und passt dann alle Fenster, die auf einem anderen Monitor gelandet sind, ausgehend von ihrem Zustand
+  **vor** der Änderung an – Position und Größenverhältnis stimmen dann wieder. Abschaltbar unter Allgemein → Verhalten.
 - **Angeordnete (Snap-)Fenster** bleiben unangetastet, solange sie angeordnet sind.
 - Im Modus *Prozentual* bewirkt das Tastenkürzel ohne passende feste Regel nur ein Einpassen in den Arbeitsbereich.
 - Fenster ohne veränderbaren Rahmen (z. B. feste Dialoge) werden nicht angepasst. Warum ein Fenster ignoriert wurde,
