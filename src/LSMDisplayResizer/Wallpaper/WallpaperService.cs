@@ -123,8 +123,26 @@ internal sealed class WallpaperService : IDisposable
                 return (file, result, image.Size);
             });
 
+            DateTime before = WallpaperSetter.GetTranscodedTimestamp();
             WallpaperSetter.ApplySpanned(path);
             WallpaperSetter.CleanupOldImages(keep: path);
+
+            // Windows legt jedes übernommene Hintergrundbild als "TranscodedWallpaper" ab – daran ist erkennbar,
+            // ob es wirklich angekommen ist (SystemParametersInfo meldet auch dann Erfolg, wenn nicht).
+            bool applied = false;
+            for (int i = 0; i < 20 && !applied; i++)
+            {
+                await Task.Delay(250);
+                applied = WallpaperSetter.GetTranscodedTimestamp() != before;
+            }
+            if (!applied)
+            {
+                const string notApplied = "Windows hat das Hintergrundbild nicht übernommen. Häufige Ursachen: eine Gruppenrichtlinie, " +
+                                          "oder die App wurde aus einer anderen (Store-)App heraus gestartet – dann bitte die App beenden " +
+                                          "und über das Startmenü neu starten.";
+                Log.Warn($"{notApplied} Bild: {path}");
+                return notApplied;
+            }
             WriteSignature(signature);
 
             var message = new StringBuilder();

@@ -1,5 +1,7 @@
 using System.ComponentModel;
+using System.Runtime.InteropServices;
 using System.Text.Json;
+using LSMDisplayResizer.Interop;
 using LSMDisplayResizer.Logging;
 using Microsoft.Win32;
 using static LSMDisplayResizer.Interop.NativeMethods;
@@ -14,7 +16,9 @@ internal static class WallpaperSetter
 
     /// <param name="Wallpaper">Gesicherte Kopie der Bilddatei.</param>
     /// <param name="OriginalPath">Ursprünglicher Pfad (wird bevorzugt, solange die Datei existiert).</param>
-    private sealed record Backup(string Wallpaper, string WallpaperStyle, string TileWallpaper, string? OriginalPath = null);
+    /// <param name="BackgroundType">Hintergrundtyp vorher (0 = Bild, 1 = Volltonfarbe, 2 = Diashow, 3 = Blickpunkt).</param>
+    private sealed record Backup(string Wallpaper, string WallpaperStyle, string TileWallpaper, string? OriginalPath = null,
+        int? BackgroundType = null);
 
     public static string OutputDirectory => Path.Combine(AppInfo.DataDirectory, "Hintergrund");
 
@@ -45,19 +49,29 @@ internal static class WallpaperSetter
         return null;
     }
 
-    /// <summary>Setzt <paramref name="imagePath"/> als über alle Monitore gespanntes Hintergrundbild.</summary>
+    /// <summary>
+    /// Setzt <paramref name="imagePath"/> als über alle Monitore gespanntes Hintergrundbild.
+    /// Bevorzugt über IDesktopWallpaper: Nur so wird auch von „Volltonfarbe“ auf „Bild“ umgeschaltet.
+    /// Muss auf einem STA-Thread (UI-Thread) aufgerufen werden.
+    /// </summary>
     public static void ApplySpanned(string imagePath)
     {
         BackupCurrentIfForeign();
 
-        using (var key = Registry.CurrentUser.CreateSubKey(DesktopKey, writable: true))
+        if (TryViaCom(dw =>
+            {
+                // Reihenfolge wichtig: Enable(true) vor dem Setzen lädt das bisherige Bild des
+                // virtuellen Desktops und scheitert, wenn dort keins eingetragen ist (0x80070002).
+                Step("SetPosition", () => dw.SetPosition(DesktopWallpaperPosition.Span));
+                Step("SetWallpaper", () => SetForAllMonitors(dw, imagePath));
+                Step("Enable", () => dw.Enable(true));                         // Volltonfarbe → Bild
+            }, out var error))
         {
-            key.SetValue("WallpaperStyle", SpanStyle, RegistryValueKind.String);
-            key.SetValue("TileWallpaper", "0", RegistryValueKind.String);
+            return;
         }
 
-        if (!SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, imagePath, SPIF_UPDATEINIFILE | SPIF_SENDWININICHANGE))
-            throw new Win32Exception();
+        Log.Warn($"IDesktopWallpaper nicht verfügbar ({error?.Message}) – Rückfall auf SystemParametersInfo");
+        SetViaLegacyApi(imagePath, SpanStyle, "0");
     }
 
     /// <summary>Stellt das Hintergrundbild wieder her, das vor der ersten Verwendung gesetzt war.</summary>
@@ -67,27 +81,159 @@ internal static class WallpaperSetter
         var backup = JsonSerializer.Deserialize<Backup>(File.ReadAllText(BackupFile));
         if (backup == null) return false;
 
-        using (var key = Registry.CurrentUser.CreateSubKey(DesktopKey, writable: true))
-        {
-            key.SetValue("WallpaperStyle", backup.WallpaperStyle, RegistryValueKind.String);
-            key.SetValue("TileWallpaper", backup.TileWallpaper, RegistryValueKind.String);
-        }
-
         // Originaldatei bevorzugen – außer Windows' eigene Zwischendatei, die inzwischen unser Bild enthält.
         string path =
             backup.OriginalPath is { Length: > 0 } original && File.Exists(original) && !IsTranscoded(original) ? original :
             File.Exists(backup.Wallpaper) ? backup.Wallpaper :
             string.Empty;
-        if (!SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, path, SPIF_UPDATEINIFILE | SPIF_SENDWININICHANGE))
-            throw new Win32Exception();
+
+        // Vorher "Volltonfarbe" (1) oder gar kein Bild → wieder Volltonfarbe anzeigen.
+        bool solidColor = backup.BackgroundType == 1 || path.Length == 0;
+        var position = ToPosition(backup.WallpaperStyle, backup.TileWallpaper);
+
+        if (!TryViaCom(dw =>
+            {
+                Step("SetPosition", () => dw.SetPosition(position));
+                if (path.Length > 0) Step("SetWallpaper", () => SetForAllMonitors(dw, path));
+                Step("Enable", () => dw.Enable(!solidColor));
+            }, out var error))
+        {
+            Log.Warn($"IDesktopWallpaper nicht verfügbar ({error?.Message}) – Rückfall auf SystemParametersInfo");
+            SetViaLegacyApi(solidColor ? string.Empty : path, backup.WallpaperStyle, backup.TileWallpaper);
+        }
 
         File.Delete(BackupFile);
-        Log.Info($"Vorheriges Hintergrundbild wiederhergestellt: {(path.Length > 0 ? path : "(keins)")}");
+        Log.Info(solidColor
+            ? "Vorheriger Hintergrund wiederhergestellt: Volltonfarbe"
+            : $"Vorheriges Hintergrundbild wiederhergestellt: {path}");
         return true;
+    }
+
+    private static bool TryViaCom(Action<IDesktopWallpaper> action, out Exception? error)
+    {
+        error = null;
+        IDesktopWallpaper? dw = null;
+        try
+        {
+            dw = (IDesktopWallpaper)new DesktopWallpaperClass();
+            action(dw);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = ex;
+            return false;
+        }
+        finally
+        {
+            if (dw != null) Marshal.ReleaseComObject(dw);
+        }
+    }
+
+    /// <summary>
+    /// Setzt das Bild für alle Monitore. Windows merkt sich auch längst abgesteckte Monitore; mit ihnen scheitert
+    /// SetWallpaper(null, …) mit 0x80070002. Dann wird jeder angeschlossene Monitor einzeln gesetzt.
+    /// </summary>
+    private static void SetForAllMonitors(IDesktopWallpaper dw, string path)
+    {
+        try
+        {
+            dw.SetWallpaper(null, path);
+            return;
+        }
+        catch (Exception ex)
+        {
+            Log.Debug($"SetWallpaper für alle Monitore fehlgeschlagen ({ex.Message}) – setze einzeln");
+        }
+
+        int ok = 0;
+        uint count = dw.GetMonitorDevicePathCount();
+        for (uint i = 0; i < count; i++)
+        {
+            string id;
+            try
+            {
+                id = dw.GetMonitorDevicePathAt(i);
+                if (string.IsNullOrEmpty(id)) continue;
+                dw.GetMonitorRECT(id); // wirft bei nicht angeschlossenen Monitoren
+            }
+            catch
+            {
+                continue;
+            }
+            dw.SetWallpaper(id, path);
+            ok++;
+        }
+        if (ok == 0) throw new InvalidOperationException("Kein angeschlossener Monitor gefunden");
+    }
+
+    /// <summary>Führt einen COM-Schritt aus und nennt ihn im Fehlerfall.</summary>
+    private static void Step(string name, Action action)
+    {
+        try
+        {
+            action();
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"{name}: {ex.Message}", ex);
+        }
+    }
+
+    private static void SetViaLegacyApi(string path, string style, string tile)
+    {
+        using (var key = Registry.CurrentUser.CreateSubKey(DesktopKey, writable: true))
+        {
+            key.SetValue("WallpaperStyle", style, RegistryValueKind.String);
+            key.SetValue("TileWallpaper", tile, RegistryValueKind.String);
+        }
+        if (!SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, path, SPIF_UPDATEINIFILE | SPIF_SENDWININICHANGE))
+            throw new Win32Exception();
+    }
+
+    /// <summary>Registry-Werte WallpaperStyle/TileWallpaper → Position.</summary>
+    private static DesktopWallpaperPosition ToPosition(string style, string tile) => style switch
+    {
+        "22" => DesktopWallpaperPosition.Span,
+        "10" => DesktopWallpaperPosition.Fill,
+        "6" => DesktopWallpaperPosition.Fit,
+        "2" => DesktopWallpaperPosition.Stretch,
+        "0" when tile == "1" => DesktopWallpaperPosition.Tile,
+        "0" => DesktopWallpaperPosition.Center,
+        _ => DesktopWallpaperPosition.Fill,
+    };
+
+    /// <summary>Hintergrundtyp aus den Windows-Einstellungen: 0 = Bild, 1 = Volltonfarbe, 2 = Diashow, 3 = Blickpunkt.</summary>
+    private static int? ReadBackgroundType()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Explorer\Wallpapers");
+            return key?.GetValue("BackgroundType") is int i ? i : null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static bool IsTranscoded(string path) =>
         Path.GetFileName(path).StartsWith("TranscodedWallpaper", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Zeitstempel von Windows' Kopie des aktuellen Hintergrundbilds (ändert sich bei jeder Übernahme).</summary>
+    public static DateTime GetTranscodedTimestamp()
+    {
+        try
+        {
+            string file = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                @"Microsoft\Windows\Themes\TranscodedWallpaper");
+            return File.Exists(file) ? File.GetLastWriteTimeUtc(file) : DateTime.MinValue;
+        }
+        catch
+        {
+            return DateTime.MinValue;
+        }
+    }
 
     /// <summary>Löscht ältere erzeugte Bilder bis auf <paramref name="keep"/>.</summary>
     public static void CleanupOldImages(string keep)
@@ -130,9 +276,10 @@ internal static class WallpaperSetter
             savedCopy,
             key?.GetValue("WallpaperStyle") as string ?? "10",
             key?.GetValue("TileWallpaper") as string ?? "0",
-            wallpaper);
+            wallpaper,
+            ReadBackgroundType());
 
         File.WriteAllText(BackupFile, JsonSerializer.Serialize(backup));
-        Log.Info($"Bisheriges Hintergrundbild gesichert: {(wallpaper.Length > 0 ? wallpaper : "(keins)")}");
+        Log.Info($"Bisheriger Hintergrund gesichert: {(backup.BackgroundType == 1 ? "Volltonfarbe" : wallpaper.Length > 0 ? wallpaper : "(keins)")}");
     }
 }
