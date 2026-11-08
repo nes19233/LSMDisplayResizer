@@ -1,6 +1,7 @@
 using System.Drawing;
 using LSMDisplayResizer.Logging;
 using LSMDisplayResizer.Monitors;
+using LSMDisplayResizer.Resizing;
 using LSMDisplayResizer.Settings;
 using Microsoft.Win32;
 using static LSMDisplayResizer.Interop.NativeMethods;
@@ -9,7 +10,7 @@ namespace LSMDisplayResizer.Tracking;
 
 /// <summary>
 /// Überwacht Fensterbewegungen per SetWinEventHook, merkt sich pro Fenster den letzten Monitor
-/// und meldet einen Monitorwechsel. Läuft komplett auf dem UI-Thread.
+/// und passt die Größe an, wenn das Fenster auf einem anderen Monitor landet. Läuft komplett auf dem UI-Thread.
 /// </summary>
 internal sealed class WindowTracker : IDisposable
 {
@@ -313,8 +314,116 @@ internal sealed class WindowTracker : IDisposable
     private void OnMonitorChanged(WindowSnapshot window, MonitorChange previous, MonitorDescriptor target,
         bool byDrag, TrackedWindow tw)
     {
-        Log.Info($"Monitorwechsel erkannt{(byDrag ? " (Maus)" : string.Empty)}: {window.Describe()}: " +
-                 $"{previous.OldMonitorName} → {target.DisplayName}");
+        bool keepPosition = byDrag && _settings.KeepDropPositionOnDrag;
+        Rectangle targetFrame;
+        string how;
+
+        FixedRule? rule = _settings.Mode == ResizeMode.FixedRules
+            ? RuleMatcher.Find(_settings.Rules, window.ProcessName, target)
+            : null;
+
+        if (rule != null)
+        {
+            targetFrame = SizeCalculator.FromRule(rule, previous.OldWorkArea, previous.OldFrame, target.WorkArea,
+                window.FrameRect, keepPosition);
+            how = $"Regel {rule.Width:0.#} × {rule.Height:0.#} {rule.UnitText}";
+        }
+        else if (_settings.Mode == ResizeMode.Percent || _settings.PercentFallbackWithoutRule)
+        {
+            targetFrame = SizeCalculator.Percent(previous.OldWorkArea, previous.OldFrame, target.WorkArea,
+                window.FrameRect, keepPosition);
+            how = _settings.Mode == ResizeMode.Percent ? "prozentual" : "prozentual, keine Regel";
+        }
+        else
+        {
+            Log.Info($"{window.Describe()}: keine Regel für {target.DisplayName} – unverändert");
+            return;
+        }
+
+        Apply(window, targetFrame, $"{previous.OldMonitorName} → {target.DisplayName}", how, target, tw);
+    }
+
+    /// <summary>
+    /// Manuelle Anpassung (Tastenkürzel), unabhängig von Aktiv/Pausiert: passende feste Regel anwenden,
+    /// sonst das Fenster vollständig in den Arbeitsbereich holen.
+    /// </summary>
+    public void AdjustNow(IntPtr hwnd)
+    {
+        try
+        {
+            var reason = WindowInspector.Check(hwnd, _excluded, out var snap);
+            if (reason != SkipReason.None || snap == null)
+            {
+                Log.Info($"Tastenkürzel: aktives Fenster wird nicht angepasst ({WindowInspector.SkipReasonText(reason)})");
+                return;
+            }
+
+            var monitor = _monitors.FromWindow(hwnd);
+            if (monitor == null) return;
+            if (WindowInspector.IsFullScreen(snap, monitor.Bounds))
+            {
+                Log.Info($"Tastenkürzel: {snap.Describe()} ist im Vollbild – unverändert");
+                return;
+            }
+
+            var rule = RuleMatcher.Find(_settings.Rules, snap.ProcessName, monitor);
+            Rectangle target;
+            string how;
+            if (rule != null)
+            {
+                target = SizeCalculator.FromRule(rule, null, null, monitor.WorkArea, snap.FrameRect, keepCurrentPosition: true);
+                how = $"Regel {rule.Width:0.#} × {rule.Height:0.#} {rule.UnitText}";
+            }
+            else
+            {
+                target = SizeCalculator.ClampToWorkArea(snap.FrameRect, monitor.WorkArea);
+                how = "keine Regel, nur in den Arbeitsbereich eingepasst";
+            }
+
+            _windows.TryGetValue(hwnd, out var tw);
+            Apply(snap, target, $"Tastenkürzel auf {monitor.DisplayName}", how, monitor, tw);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Fehler bei der manuellen Anpassung", ex);
+        }
+    }
+
+    private void Apply(WindowSnapshot window, Rectangle targetFrame, string context, string how,
+        MonitorDescriptor monitor, TrackedWindow? tw)
+    {
+        string sizes = $"{window.FrameRect.Width}×{window.FrameRect.Height} → {targetFrame.Width}×{targetFrame.Height}";
+        if (targetFrame == window.FrameRect)
+        {
+            Log.Info($"{window.Describe()}: {context}; Größe passt bereits ({how})");
+            return;
+        }
+
+        MoveResult result = WindowMover.Move(window.Handle, targetFrame);
+
+        if (tw != null)
+        {
+            tw.SuppressUntil = DateTime.UtcNow + OwnChangeSuppression;
+            if (result.Outcome is MoveOutcome.Ok or MoveOutcome.Partial) tw.Record(monitor, result.ActualFrame);
+        }
+
+        switch (result.Outcome)
+        {
+            case MoveOutcome.Ok:
+                Log.Info($"{window.Describe()}: {context}; {sizes} ({how})");
+                break;
+            case MoveOutcome.Partial:
+                Log.Info($"{window.Describe()}: {context}; {sizes} ({how}) – Programm hat " +
+                         $"{result.ActualFrame.Width}×{result.ActualFrame.Height} gewählt (eigene Mindest-/Höchstgröße)");
+                break;
+            case MoveOutcome.AccessDenied:
+                Log.Warn($"{window.Describe()}: Zugriff verweigert. Das Programm läuft vermutlich mit " +
+                         $"Administratorrechten – dafür muss {AppInfo.Name} ebenfalls als Administrator laufen.");
+                break;
+            default:
+                Log.Warn($"{window.Describe()}: Anpassung fehlgeschlagen (Win32-Fehler {result.Win32Error})");
+                break;
+        }
     }
 
     private void HandleSkipped(IntPtr hwnd, SkipReason reason, WindowSnapshot? snap, Trigger trigger)
