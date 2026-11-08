@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>LSMDisplayResizer</RootNamespace>
+    <AssemblyName>LSMDisplayResizer</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Resources\app.ico</ApplicationIcon>
+    <SatelliteResourceLanguages>de</SatelliteResourceLanguages>
+
+    <!-- Version: wird im Release-Workflow per -p:Version=x.y.z aus dem Git-Tag gesetzt -->
+    <Version>0.1.0</Version>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <Product>LSM Display Resizer</Product>
+    <Company>LSM</Company>
+    <Description>Passt Fenstergrößen automatisch an, wenn Fenster auf einen anderen Monitor verschoben werden.</Description>
+
+    <!-- DPI-Modus steht bewusst im app.manifest (PerMonitorV2). -->
+    <NoWarn>$(NoWarn);WFAC010;WFO0003</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(PublishSingleFile)' == 'true'">
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebugType>embedded</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\app.ico" LogicalName="LSMDisplayResizer.app.ico" />
+    <EmbeddedResource Include="Resources\app-paused.ico" LogicalName="LSMDisplayResizer.app-paused.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="LSMDisplayResizer.Tests" />
+  </ItemGroup>
+
+</Project>
