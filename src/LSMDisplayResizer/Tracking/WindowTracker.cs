@@ -32,8 +32,14 @@ internal sealed class WindowTracker : IDisposable
         Drag,
     }
 
+    /// <summary>
+    /// Zustand eines Fensters. Entscheidend ist der Monitor, auf dem das Fenster zuletzt im normalen
+    /// Zustand (nicht maximiert/angeordnet) war: Wird es z. B. maximiert, auf einen anderen Monitor
+    /// verschoben und dort wiederhergestellt, wird die gemerkte normale Größe umgerechnet.
+    /// </summary>
     private sealed class TrackedWindow
     {
+        /// <summary>Monitor, auf dem <see cref="Frame"/> aufgenommen wurde.</summary>
         public string MonitorId = string.Empty;
         public string MonitorName = string.Empty;
 
@@ -51,19 +57,17 @@ internal sealed class WindowTracker : IDisposable
         public bool InMoveSize;
 
         /// <summary>
-        /// Merkt sich den aktuellen Monitor. Ohne <paramref name="frame"/> (maximiert/angeordnet) bleibt der
-        /// letzte normale Rahmen samt Arbeitsbereich als Ausgangsbasis für die nächste Anpassung erhalten.
+        /// Merkt sich den normalen Rahmen samt Monitor. Ohne <paramref name="frame"/> (maximiert/angeordnet)
+        /// bleibt alles unverändert – der letzte normale Zustand ist die Ausgangsbasis für die nächste Anpassung.
         /// </summary>
         public void Record(MonitorDescriptor monitor, Rectangle? frame)
         {
+            if (frame is not { } f) return;
             MonitorId = monitor.DeviceId;
             MonitorName = monitor.DisplayName;
-            if (frame is { } f)
-            {
-                Frame = f;
-                WorkArea = monitor.WorkArea;
-                HasNormalFrame = true;
-            }
+            Frame = f;
+            WorkArea = monitor.WorkArea;
+            HasNormalFrame = true;
         }
     }
 
@@ -280,7 +284,9 @@ internal sealed class WindowTracker : IDisposable
             return;
         }
 
-        bool monitorChanged = !string.Equals(tw.MonitorId, monitor.DeviceId, StringComparison.OrdinalIgnoreCase);
+        // Vergleich mit dem Monitor des letzten normalen Zustands (siehe TrackedWindow).
+        bool monitorChanged = tw.HasNormalFrame &&
+                              !string.Equals(tw.MonitorId, monitor.DeviceId, StringComparison.OrdinalIgnoreCase);
         if (!monitorChanged || trigger is Trigger.Snapshot or Trigger.Shown or Trigger.Foreground)
         {
             tw.Record(monitor, snap.FrameRect);
@@ -293,7 +299,6 @@ internal sealed class WindowTracker : IDisposable
             now < _quietUntil ? "Anzeigeänderung läuft" :
             now < tw.SuppressUntil ? "eigene Änderung" :
             now - tw.FirstSeen < NewWindowGrace ? "Fenster ist neu" :
-            !tw.HasNormalFrame ? "kein Ausgangszustand (war maximiert)" :
             null;
 
         var previous = new MonitorChange(tw.MonitorName, tw.WorkArea, tw.Frame);
