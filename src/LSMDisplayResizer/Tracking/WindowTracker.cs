@@ -251,9 +251,11 @@ internal sealed class WindowTracker : IDisposable
         var monitor = _monitors.FromWindow(hwnd);
         if (monitor == null) return;
 
-        // Ausgangszustand vor dem Ziehen. Bei angeordneten (Snap) Fenstern bleibt der letzte normale Rahmen.
+        // Ausgangszustand vor dem Ziehen. Bei angeordneten (Snap) Fenstern und solchen mit voller Höhe
+        // bleibt der letzte normale Rahmen.
+        bool normal = reason == SkipReason.None && !IsFullHeight(snap, monitor);
         var tw = GetOrAdd(hwnd, firstSeen: DateTime.MinValue);
-        tw.Record(monitor, reason == SkipReason.None ? snap.FrameRect : null);
+        tw.Record(monitor, normal ? snap.FrameRect : null);
         tw.InMoveSize = true;
     }
 
@@ -292,6 +294,12 @@ internal sealed class WindowTracker : IDisposable
         if (WindowInspector.IsFullScreen(snap, monitor.Bounds))
         {
             HandleSkipped(hwnd, SkipReason.FullScreen, snap, trigger);
+            return;
+        }
+
+        if (IsFullHeight(snap, monitor))
+        {
+            HandleSkipped(hwnd, SkipReason.FullHeight, snap, trigger);
             return;
         }
 
@@ -456,7 +464,7 @@ internal sealed class WindowTracker : IDisposable
     private void HandleSkipped(IntPtr hwnd, SkipReason reason, WindowSnapshot? snap, Trigger trigger)
     {
         // Maximierte/angeordnete Fenster weiter verfolgen: Monitor merken, letzten normalen Rahmen behalten.
-        if (snap != null && reason is SkipReason.Maximized or SkipReason.Arranged)
+        if (snap != null && reason is SkipReason.Maximized or SkipReason.Arranged or SkipReason.FullHeight)
         {
             var monitor = _monitors.FromWindow(hwnd);
             if (monitor != null)
@@ -472,6 +480,10 @@ internal sealed class WindowTracker : IDisposable
             Log.Debug($"Ignoriert ({WindowInspector.SkipReasonText(reason)}): {what}");
         }
     }
+
+    /// <summary>Volle Höhe des Arbeitsbereichs (angedockt/aufgezogen) – nur wenn in den Einstellungen aktiviert.</summary>
+    private bool IsFullHeight(WindowSnapshot snap, MonitorDescriptor monitor) =>
+        _settings.TreatFullHeightAsSnapped && WindowInspector.SpansFullHeight(snap.FrameRect, monitor.WorkArea);
 
     private TrackedWindow GetOrAdd(IntPtr hwnd, DateTime firstSeen)
     {
@@ -544,6 +556,11 @@ internal sealed class WindowTracker : IDisposable
 
             var monitor = _monitors.FromWindow(hwnd);
             if (monitor == null || WindowInspector.IsFullScreen(snap, monitor.Bounds)) return false;
+            if (IsFullHeight(snap, monitor))
+            {
+                HandleSkipped(hwnd, SkipReason.FullHeight, snap, Trigger.Snapshot);
+                return false;
+            }
 
             if (!_windows.TryGetValue(hwnd, out var tw) || !tw.HasNormalFrame)
             {

@@ -29,6 +29,12 @@ internal sealed class AppSettings
     public Keys Hotkey { get; set; } = Keys.Control | Keys.Alt | Keys.R;
 
     /// <summary>
+    /// Fenster, die die volle Höhe des Arbeitsbereichs nutzen (angedockt bzw. von Windows nur aufgezogen statt
+    /// maximiert), wie maximierte Fenster behandeln: Größe nicht merken, nicht anpassen.
+    /// </summary>
+    public bool TreatFullHeightAsSnapped { get; set; } = true;
+
+    /// <summary>
     /// Nach Anzeigeänderungen (An-/Abdocken, Monitor ab-/angesteckt, Standby) Fenster, die Windows auf einen
     /// anderen Monitor geschoben hat, anpassen – ausgehend von ihrem Zustand vor der Änderung.
     /// </summary>

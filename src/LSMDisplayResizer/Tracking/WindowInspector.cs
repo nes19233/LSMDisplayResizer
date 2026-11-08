@@ -26,6 +26,7 @@ internal enum SkipReason
     Arranged,
     Hung,
     FullScreen,
+    FullHeight,
 }
 
 /// <summary>Momentaufnahme eines Fensters.</summary>
@@ -75,6 +76,7 @@ internal static class WindowInspector
         SkipReason.Arranged => "per Snap angeordnet",
         SkipReason.Hung => "Programm reagiert nicht",
         SkipReason.FullScreen => "Vollbild",
+        SkipReason.FullHeight => "volle Bildschirmhöhe (angedockt)",
         _ => "-",
     };
 
@@ -121,6 +123,17 @@ internal static class WindowInspector
     }
 
     /// <summary>Vollbild: Das Fenster deckt den gesamten Monitor (nicht nur den Arbeitsbereich) ab.</summary>
+    /// <summary>
+    /// Fenster nutzt die volle Höhe des Arbeitsbereichs – typisch für angedockte (Snap) oder senkrecht maximierte
+    /// Fenster, die Windows nur aufzieht statt maximiert. Kleine Abweichungen (Ränder, Rundung) werden toleriert.
+    /// </summary>
+    public static bool SpansFullHeight(Rectangle frame, Rectangle workArea)
+    {
+        if (workArea.Height <= 0) return false;
+        int tolerance = Math.Max(4, workArea.Height / 200); // ≥ 4 px, bei hohen Monitoren 0,5 %
+        return Math.Abs(frame.Top - workArea.Top) <= tolerance && Math.Abs(frame.Bottom - workArea.Bottom) <= tolerance;
+    }
+
     public static bool IsFullScreen(WindowSnapshot window, Rectangle monitorBounds) =>
         window.WindowRect.Contains(monitorBounds) || window.FrameRect.Contains(monitorBounds);
 

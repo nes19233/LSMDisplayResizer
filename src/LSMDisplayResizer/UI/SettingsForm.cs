@@ -17,6 +17,7 @@ internal sealed class SettingsForm : Form
     private readonly RadioButton _radRules;
     private readonly CheckBox _chkFallback;
     private readonly CheckBox _chkKeepDrop;
+    private readonly CheckBox _chkFullHeight;
     private readonly CheckBox _chkAfterDisplayChange;
     private readonly NumericUpDown _numDisplayDelay;
     private readonly CheckBox _chkHotkey;
@@ -89,6 +90,12 @@ internal sealed class SettingsForm : Form
         Ui.AddRow(general, _chkKeepDrop);
         Ui.AddRow(general, Ui.Text("Nur die Größe ändert sich, die linke obere Ecke bleibt, wo das Fenster losgelassen wurde. " +
                                    "Bei Win+Umschalt+Pfeil wird die Position immer relativ übertragen.", hint: true, indent: 20));
+
+        _chkFullHeight = Ui.Check("Fenster mit voller Bildschirmhöhe wie angedockte behandeln");
+        Ui.AddRow(general, _chkFullHeight);
+        Ui.AddRow(general, Ui.Text("Windows zieht angedockte Fenster (z. B. linke Bildschirmhälfte) oft nur auf volle Höhe, statt sie zu " +
+                                   "maximieren. Solche Fenster werden dann wie maximierte behandelt: Ihre Größe wird nicht gemerkt, es gilt " +
+                                   "weiter die letzte normale Größe.", hint: true, indent: 20));
 
         var dockRow = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = Padding.Empty };
         _chkAfterDisplayChange = Ui.Check("Nach An-/Abdocken und Monitorwechseln Fenster anpassen, höchstens warten:");
@@ -289,6 +296,7 @@ internal sealed class SettingsForm : Form
         _radRules.Checked = _settings.Mode == ResizeMode.FixedRules;
         _chkFallback.Checked = _settings.PercentFallbackWithoutRule;
         _chkKeepDrop.Checked = _settings.KeepDropPositionOnDrag;
+        _chkFullHeight.Checked = _settings.TreatFullHeightAsSnapped;
         _chkAfterDisplayChange.Checked = _settings.AdjustAfterDisplayChange;
         _numDisplayDelay.Value = Math.Clamp(_settings.DisplayChangeDelaySeconds, 2, 60);
         _numDisplayDelay.Enabled = _chkAfterDisplayChange.Checked;
@@ -519,6 +527,7 @@ internal sealed class SettingsForm : Form
         _settings.Mode = _radRules.Checked ? ResizeMode.FixedRules : ResizeMode.Percent;
         _settings.PercentFallbackWithoutRule = _chkFallback.Checked;
         _settings.KeepDropPositionOnDrag = _chkKeepDrop.Checked;
+        _settings.TreatFullHeightAsSnapped = _chkFullHeight.Checked;
         _settings.AdjustAfterDisplayChange = _chkAfterDisplayChange.Checked;
         _settings.DisplayChangeDelaySeconds = (int)_numDisplayDelay.Value;
         _settings.HotkeyEnabled = _chkHotkey.Checked;

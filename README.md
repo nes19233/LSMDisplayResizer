@@ -35,6 +35,9 @@ Außerdem:
 ### Diese Fenster werden nie angepasst
 
 - maximierte, minimierte und per Snap angeordnete Fenster
+- Fenster, die die **volle Bildschirmhöhe** nutzen: Windows zieht angedockte Fenster (z. B. linke Bildschirmhälfte)
+  oft nur auf volle Höhe, statt sie zu maximieren. Sie werden wie maximierte behandelt – ihre Größe wird nicht gemerkt,
+  es gilt weiter die letzte normale Größe (abschaltbar unter Allgemein → Verhalten)
 - Vollbild-Fenster (z. B. Spiele, Videos)
 - unsichtbare oder verborgene („cloaked“) Fenster, Tool-Fenster, Kind-Fenster, Fenster ohne Rahmen oder mit fester Größe
 - Fenster der Windows-Shell (Taskleiste, Desktop …) und die eigenen Fenster der App
