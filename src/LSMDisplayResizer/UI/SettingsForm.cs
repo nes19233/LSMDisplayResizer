@@ -216,6 +216,25 @@ internal sealed class SettingsForm : Form
         var leftButtons = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = Padding.Empty, Anchor = AnchorStyles.Left };
         leftButtons.Controls.Add(Ui.Button("Log anzeigen …", (_, _) => showLog()));
         leftButtons.Controls.Add(version);
+        var projectLink = new LinkLabel
+        {
+            Text = "MIT-Lizenz · GitHub",
+            AutoSize = true,
+            Anchor = AnchorStyles.Left,
+            Margin = new Padding(3, 4, 3, 4),
+        };
+        projectLink.LinkClicked += (_, _) =>
+        {
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(AppInfo.ProjectUrl) { UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                Logging.Log.Error("Projektseite konnte nicht geöffnet werden", ex);
+            }
+        };
+        leftButtons.Controls.Add(projectLink);
         footer.Controls.Add(leftButtons, 0, 0);
         var save = Ui.Button("Speichern", (_, _) => Save());
         var cancel = Ui.Button("Abbrechen", (_, _) => Close());

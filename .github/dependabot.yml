@@ -1,0 +1,15 @@
+# Hält GitHub Actions und NuGet-Pakete (Testprojekt) aktuell.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      test-packages:
+        patterns: ["*"]

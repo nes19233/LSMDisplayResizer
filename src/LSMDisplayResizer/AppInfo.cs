@@ -8,6 +8,8 @@ internal static class AppInfo
 {
     public const string Name = "LSM Display Resizer";
 
+    public const string ProjectUrl = "https://github.com/nes19233/LSMDisplayResizer";
+
     public static string Version { get; } = ReadVersion();
 
     public static string DataDirectory { get; } =

@@ -1,6 +1,9 @@
 # LSM Display Resizer
 
-Kleine Windows-Tray-App, die die **Fenstergröße automatisch an den Zielmonitor anpasst**, sobald ein Fenster
+[![Build](https://github.com/nes19233/LSMDisplayResizer/actions/workflows/build.yml/badge.svg)](https://github.com/nes19233/LSMDisplayResizer/actions/workflows/build.yml)
+[![Lizenz: MIT](https://img.shields.io/badge/Lizenz-MIT-blue.svg)](LICENSE)
+
+Kostenlose, quelloffene Windows-Tray-App, die die **Fenstergröße automatisch an den Zielmonitor anpasst**, sobald ein Fenster
 auf einen anderen Monitor verschoben wird.
 
 Hintergrund: Bei Monitoren mit unterschiedlicher Auflösung oder Skalierung wirkt ein Fenster nach dem Verschieben
@@ -178,3 +181,17 @@ git push origin v1.0.0
 
 Die Version aus dem Tag erscheint in der App (Tray-Menü, Einstellungen, Log). Tags mit Bindestrich (z. B. `v1.1.0-beta1`)
 werden als Vorabversion veröffentlicht.
+
+## Fehler melden und mitmachen
+
+Fehler und Wünsche bitte als [Issue](../../issues) melden – am besten mit Windows-Version, Monitoranordnung
+(Auflösung, Skalierung) und dem Ausschnitt aus dem Log (`%AppData%\LSM Display Resizer\log.txt`, mit „Ausführliches Log“).
+Pull Requests sind willkommen. Sicherheitslücken bitte nicht öffentlich melden, sondern wie in [SECURITY.md](SECURITY.md) beschrieben.
+
+## Lizenz
+
+LSM Display Resizer ist kostenlos und quelloffen unter der [MIT-Lizenz](LICENSE): Nutzung, Änderung und Weitergabe –
+auch kommerziell – sind erlaubt, solange der Copyright- und Lizenzhinweis erhalten bleibt. Die Software wird ohne
+Gewährleistung bereitgestellt.
+
+Copyright © 2026 Sebastian Neumeyer
