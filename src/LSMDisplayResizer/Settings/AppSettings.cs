@@ -46,6 +46,12 @@ internal sealed class AppSettings
     /// </summary>
     public bool AdjustAfterDisplayChange { get; set; } = true;
 
+    /// <summary>
+    /// Anordnung pro Monitorkonstellation merken: Nach einem Wechsel in eine bekannte Konstellation (z. B. wieder
+    /// angedockt) kommen Fenster auf ihren Monitor zurück – normale mit Position und Größe, maximierte nur auf den Monitor.
+    /// </summary>
+    public bool RestoreLayoutPerConfiguration { get; set; } = true;
+
     /// <summary>Wartezeit nach einer Anzeigeänderung, bis Windows die Fenster umgeräumt hat.</summary>
     public int DisplayChangeDelaySeconds { get; set; } = 8;
 

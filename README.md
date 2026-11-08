@@ -172,6 +172,14 @@ Tastatur/Programm, bevor geprüft wird.
   Änderung an – Position und Größenverhältnis stimmen dann wieder, meist nach 2–3 Sekunden. Ruhen alle Fenster, prüft
   ein letzter Durchgang auch Fenster ohne eigene Bewegung (z. B. nur andere Auflösung). Spätestens nach der Höchstdauer
   (Standard 8 Sekunden, einstellbar) ist Schluss. Abschaltbar unter Allgemein → Verhalten.
+- **Anordnung pro Monitorkonstellation:** Die App merkt sich für jede Kombination angeschlossener Monitore (erkannt an
+  den Geräte-IDs), auf welchem Monitor jedes Fenster lag. Wechselt man z. B. vom Laptop allein wieder auf Laptop + zwei
+  Monitore, kommt jedes Fenster auf seinen Monitor zurück – normale Fenster exakt mit Position und Größe, **maximierte**
+  Fenster bleiben maximiert und wechseln nur den Monitor. In einer noch unbekannten Konstellation greift das prozentuale
+  Umrechnen (nur für normale Fenster). Das Gedächtnis gilt für Fenster, die zwischendurch geöffnet bleiben, und geht beim
+  Beenden der App verloren. Abschaltbar unter Allgemein → Verhalten.
+  Hinweis: Windows 11 hat unter *System → Anzeige → Mehrere Bildschirme* eine ähnliche Option („Fensterpositionen
+  basierend auf der Monitorverbindung speichern“); beide stören sich nicht – stimmt die Position schon, tut die App nichts.
 - **Angeordnete (Snap-)Fenster** bleiben unangetastet, solange sie angeordnet sind.
 - Im Modus *Prozentual* bewirkt das Tastenkürzel ohne passende feste Regel nur ein Einpassen in den Arbeitsbereich.
 - Fenster ohne veränderbaren Rahmen (z. B. feste Dialoge) werden nicht angepasst. Warum ein Fenster ignoriert wurde,

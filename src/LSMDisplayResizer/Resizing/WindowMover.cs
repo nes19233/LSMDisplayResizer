@@ -53,6 +53,20 @@ internal static class WindowMover
         int error = ok ? 0 : Marshal.GetLastWin32Error();
         Rectangle actual = WindowInspector.GetFrameBounds(hwnd);
 
+        // Wechselt das Fenster dabei auf einen Monitor mit anderer Skalierung, passen DPI-fähige Programme ihre Größe
+        // (WM_DPICHANGED) selbst an. Dann die Zielgröße einmal neu setzen – jetzt mit den Rändern der neuen Skalierung.
+        if (ok && IsClearlyDifferent(actual, targetFrame) && actual != frame)
+        {
+            Rectangle w2 = WindowInspector.GetWindowRectangle(hwnd);
+            int l2 = actual.Left - w2.Left, t2 = actual.Top - w2.Top, r2 = w2.Right - actual.Right, b2 = w2.Bottom - actual.Bottom;
+            if (l2 >= 0 && t2 >= 0 && r2 >= 0 && b2 >= 0 && l2 + r2 <= 100 && t2 + b2 <= 100)
+            {
+                SetWindowPos(hwnd, IntPtr.Zero, targetFrame.Left - l2, targetFrame.Top - t2,
+                    targetFrame.Width + l2 + r2, targetFrame.Height + t2 + b2, SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
+                actual = WindowInspector.GetFrameBounds(hwnd);
+            }
+        }
+
         if (!ok)
         {
             return new MoveResult(error == ERROR_ACCESS_DENIED ? MoveOutcome.AccessDenied : MoveOutcome.Failed, actual, error);
@@ -65,6 +79,18 @@ internal static class WindowMover
         }
 
         return new MoveResult(IsClearlyDifferent(actual, targetFrame) ? MoveOutcome.Partial : MoveOutcome.Ok, actual, 0);
+    }
+
+    /// <summary>
+    /// Verschiebt ein maximiertes Fenster auf einen anderen Monitor und maximiert es dort wieder: kurz wiederherstellen
+    /// (ohne Aktivieren), auf <paramref name="normalFrameOnTarget"/> setzen, erneut maximieren.
+    /// </summary>
+    public static bool MoveMaximized(IntPtr hwnd, Rectangle normalFrameOnTarget)
+    {
+        ShowWindow(hwnd, SW_SHOWNOACTIVATE);
+        Move(hwnd, normalFrameOnTarget);
+        ShowWindow(hwnd, SW_MAXIMIZE);
+        return IsZoomed(hwnd);
     }
 
     private static bool IsClearlyDifferent(Rectangle a, Rectangle b, int tolerance = 2) =>
