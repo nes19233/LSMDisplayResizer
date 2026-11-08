@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  LSM Display Resizer – MSI
+
+  Standard (Doppelklick): Installation nur für den aktuellen Benutzer nach %LocalAppData%\Programs,
+  ohne Administratorrechte.
+  Für alle Benutzer (IT-Verteilung, mit Adminrechten): msiexec /i LSMDisplayResizer.msi ALLUSERS=1 /qn
+  Ohne Autostart: msiexec /i LSMDisplayResizer.msi AUTOSTART=0
+  (Details im README, Abschnitt "Installation".)
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+
+  <Package Name="LSM Display Resizer"
+           Manufacturer="Sebastian Neumeyer"
+           Version="$(ProductVersion)"
+           UpgradeCode="8C0949E3-589A-4467-99B3-A86D395C438C"
+           Scope="perUserOrMachine"
+           Language="1031"
+           Codepage="1252">
+
+    <SummaryInformation Description="LSM Display Resizer – passt Fenstergrößen beim Monitorwechsel automatisch an" />
+
+    <!-- Gleiche Version ersetzt sich ebenfalls (z. B. neu gebautes MSI), statt doppelt installiert zu werden. -->
+    <MajorUpgrade AllowSameVersionUpgrades="yes"
+                  DowngradeErrorMessage="Eine neuere Version von [ProductName] ist bereits installiert." />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <!-- Scope="perUserOrMachine" setzt ALLUSERS=2 und MSIINSTALLPERUSER=1 (Standard: pro Benutzer).
+         ALLUSERS=1 auf der Kommandozeile installiert pro Rechner. -->
+
+    <!-- Autostart (HKCU bzw. bei ALLUSERS=1 HKLM). Mit AUTOSTART=0 abschaltbar. -->
+    <Property Id="AUTOSTART" Value="1" Secure="yes" />
+
+    <!-- Eintrag unter "Apps" -->
+    <Icon Id="AppIcon" SourceFile="$(RepoRoot)src\LSMDisplayResizer\Resources\app.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/nes19233/LSMDisplayResizer" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/nes19233/LSMDisplayResizer/issues" />
+    <Property Id="ARPNOREPAIR" Value="1" />
+
+    <!-- Laufende App vor Update/Deinstallation beenden (sie hat kein sichtbares Fenster). -->
+    <util:CloseApplication Id="CloseRunningApp" Target="LSMDisplayResizer.exe"
+                           CloseMessage="yes" TerminateProcess="1" RebootPrompt="no" />
+
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="LSM Display Resizer" />
+    </StandardDirectory>
+
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Component Id="AppExe" Bitness="always64">
+        <File Id="AppExe" Source="$(AppPublishDir)LSMDisplayResizer.exe" KeyPath="yes" />
+      </Component>
+      <Component Id="AppLicense" Bitness="always64">
+        <File Id="LicenseFile" Source="$(RepoRoot)LICENSE" Name="LICENSE.txt" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <ComponentGroup Id="StartMenu" Directory="ProgramMenuFolder">
+      <Component Id="StartMenuShortcut">
+        <Shortcut Id="AppShortcut" Name="LSM Display Resizer" Description="Fenstergrößen beim Monitorwechsel anpassen"
+                  Target="[INSTALLFOLDER]LSMDisplayResizer.exe" WorkingDirectory="INSTALLFOLDER" Icon="AppIcon" />
+        <RegistryValue Root="HKMU" Key="Software\LSM Display Resizer" Name="StartMenuShortcut"
+                       Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <ComponentGroup Id="AutostartGroup" Directory="INSTALLFOLDER">
+      <Component Id="AutostartEntry" Condition="AUTOSTART = 1" Bitness="always64">
+        <RegistryValue Root="HKMU" Key="Software\Microsoft\Windows\CurrentVersion\Run" Name="LSM Display Resizer"
+                       Type="string" Value="&quot;[INSTALLFOLDER]LSMDisplayResizer.exe&quot; --autostart" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <Feature Id="Main" Title="LSM Display Resizer" AllowAbsent="no">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentGroupRef Id="StartMenu" />
+      <ComponentGroupRef Id="AutostartGroup" />
+    </Feature>
+
+    <!-- Oberfläche: Lizenz bestätigen, installieren, am Ende optional starten -->
+    <ui:WixUI Id="WixUI_Minimal" />
+    <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
+    <WixVariable Id="WixUIDialogBmp" Value="Resources\Dialog.bmp" />
+    <WixVariable Id="WixUIBannerBmp" Value="Resources\Banner.bmp" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="LSM Display Resizer jetzt starten" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+    <Property Id="WixShellExecTarget" Value="[#AppExe]" />
+    <CustomAction Id="LaunchApplication" BinaryRef="Wix4UtilCA_X64" DllEntry="WixShellExec" Impersonate="yes" />
+    <UI>
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchApplication"
+               Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 AND NOT Installed" />
+    </UI>
+  </Package>
+</Wix>

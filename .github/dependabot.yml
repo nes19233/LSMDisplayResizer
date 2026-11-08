@@ -1,4 +1,4 @@
-# Hält GitHub Actions und NuGet-Pakete (Testprojekt) aktuell.
+# Hält GitHub Actions und NuGet-Pakete (Testprojekt, Installer) aktuell.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -7,9 +7,16 @@ updates:
       interval: monthly
 
   - package-ecosystem: nuget
-    directory: /
+    directories:
+      - /
+      - /installer
     schedule:
       interval: monthly
     groups:
-      test-packages:
+      packages:
         patterns: ["*"]
+    ignore:
+      # WiX ab Version 6 verlangt von Organisationen mit Umsatz die "Open Source Maintenance Fee".
+      # Wechsel nur bewusst, nicht automatisch.
+      - dependency-name: "WixToolset.*"
+        update-types: ["version-update:semver-major"]

@@ -1,6 +1,6 @@
 name: Release
 
-# Baut bei einem Tag v* (z. B. v1.0.0) eine Single-File-EXE und lädt sie als GitHub-Release hoch.
+# Baut bei einem Tag v* (z. B. v1.0.0) MSI und Single-File-EXE und lädt sie als GitHub-Release hoch.
 on:
   push:
     tags:
@@ -41,14 +41,20 @@ jobs:
           -p:Version=${{ env.VERSION }}
           -o publish
 
-      - name: EXE umbenennen
+      - name: MSI bauen
+        shell: pwsh
+        run: dotnet build installer/LSMDisplayResizer.Installer.wixproj -c Release "-p:Version=$env:VERSION" "-p:AppPublishDir=$PWD\publish\"
+
+      - name: Dateien für das Release zusammenstellen
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force dist | Out-Null
           Copy-Item publish/LSMDisplayResizer.exe "dist/LSMDisplayResizer-$env:VERSION-win-x64.exe"
-          Get-FileHash "dist/LSMDisplayResizer-$env:VERSION-win-x64.exe" -Algorithm SHA256 |
-            ForEach-Object { "$($_.Hash.ToLower())  LSMDisplayResizer-$env:VERSION-win-x64.exe" } |
-            Set-Content "dist/SHA256SUMS.txt"
+          $msi = Get-ChildItem installer/bin -Recurse -Filter LSMDisplayResizer.msi | Select-Object -First 1
+          Copy-Item $msi.FullName "dist/LSMDisplayResizer-$env:VERSION-win-x64.msi"
+          Get-ChildItem dist -Filter 'LSMDisplayResizer-*' | Get-FileHash -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" } |
+            Set-Content dist/SHA256SUMS.txt
 
       - name: Release erstellen
         uses: softprops/action-gh-release@v3
@@ -57,5 +63,6 @@ jobs:
           prerelease: ${{ contains(github.ref_name, '-') }}
           generate_release_notes: true
           files: |
+            dist/LSMDisplayResizer-${{ env.VERSION }}-win-x64.msi
             dist/LSMDisplayResizer-${{ env.VERSION }}-win-x64.exe
             dist/SHA256SUMS.txt

@@ -42,27 +42,54 @@ Außerdem:
 
 ## Installation
 
-1. Unter [Releases](../../releases) die neueste `LSMDisplayResizer-x.y.z-win-x64.exe` herunterladen.
-2. Die EXE an einen festen Ort legen, z. B. `C:\Tools\LSM Display Resizer\`.
-3. Starten – das Symbol erscheint im Infobereich (ggf. unter dem Pfeil „Ausgeblendete Symbole“).
-4. Optional in den Einstellungen **„Mit Windows starten“** aktivieren.
+Unter [Releases](../../releases) gibt es zwei Varianten. Voraussetzung jeweils Windows 10 oder 11, 64 Bit; eine
+.NET-Installation ist nicht nötig.
 
-Die EXE ist eigenständig (self-contained), eine .NET-Installation ist nicht nötig. Voraussetzung: Windows 10 oder 11, 64 Bit.
+| Datei | Wofür |
+|---|---|
+| `LSMDisplayResizer-x.y.z-win-x64.msi` | **Empfohlen.** Installer mit Startmenü-Eintrag, Autostart, Eintrag unter „Apps“ und Updates |
+| `LSMDisplayResizer-x.y.z-win-x64.exe` | Portable Einzeldatei ohne Installation |
 
-Beim ersten Start einer heruntergeladenen EXE kann Windows SmartScreen warnen, weil die Datei nicht signiert ist
+### MSI (empfohlen)
+
+**Doppelklick** installiert für den angemeldeten Benutzer nach `%LocalAppData%\Programs\LSM Display Resizer\` –
+**ohne Administratorrechte**. Der Installer richtet Startmenü-Verknüpfung und Autostart ein und bietet am Ende an,
+die App gleich zu starten.
+
+- **Update:** neueres MSI einfach installieren – die laufende App wird beendet und ersetzt, Einstellungen bleiben.
+- **Deinstallieren:** Einstellungen → Apps → „LSM Display Resizer“. Einstellungen und Log in `%AppData%` bleiben erhalten.
+
+**Für alle Benutzer / IT-Verteilung** (mit Administratorrechten, z. B. per Intune, SCCM oder Skript):
+
+```powershell
+msiexec /i LSMDisplayResizer-x.y.z-win-x64.msi ALLUSERS=1 /qn               # nach C:\Program Files, Autostart für alle
+msiexec /i LSMDisplayResizer-x.y.z-win-x64.msi ALLUSERS=1 AUTOSTART=0 /qn   # dasselbe ohne Autostart
+msiexec /i LSMDisplayResizer-x.y.z-win-x64.msi /qn                          # still, nur aktueller Benutzer
+msiexec /x LSMDisplayResizer-x.y.z-win-x64.msi /qn                          # deinstallieren
+```
+
+Auch bei der Installation für alle Benutzer läuft die App selbst im Benutzerkontext (ohne Adminrechte).
+
+### Portable EXE
+
+1. Die EXE an einen festen Ort legen, z. B. `%LocalAppData%\Programs\LSM Display Resizer\`.
+2. Starten – das Symbol erscheint im Infobereich (ggf. unter dem Pfeil „Ausgeblendete Symbole“).
+3. Optional in den Einstellungen **„Mit Windows starten“** aktivieren.
+
+Beim ersten Start einer heruntergeladenen Datei kann Windows SmartScreen warnen, weil sie nicht signiert ist
 („Weitere Informationen“ → „Trotzdem ausführen“).
 
 ### Einsatz im Benutzerkontext / in Domänennetzwerken
 
-- Die App läuft als **normaler Benutzer** (`asInvoker`), braucht keine Administratorrechte und keine Installation.
+- Die App läuft als **normaler Benutzer** (`asInvoker`), braucht keine Administratorrechte.
 - Einstellungen und Log liegen pro Benutzer in `%AppData%\LSM Display Resizer\` (wandert bei servergespeicherten Profilen mit).
-- **Autostart** („Mit Windows starten“) nutzt `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` – nur für den
-  angemeldeten Benutzer, ohne Adminrechte, ohne Dienst oder geplante Aufgabe.
-- Empfohlener Ablageort ohne Adminrechte: `%LocalAppData%\Programs\LSM Display Resizer\LSMDisplayResizer.exe`.
+- **Autostart** nutzt `…\CurrentVersion\Run` unter HKCU (pro Benutzer) bzw. beim MSI mit `ALLUSERS=1` unter HKLM
+  (für alle Benutzer) – ohne Dienst oder geplante Aufgabe.
 - **Signatur:** Zum Ausführen technisch nicht nötig. Ohne Signatur warnt aber SmartScreen bei heruntergeladenen Dateien.
-  Wenn per Gruppenrichtlinie **AppLocker, WDAC oder Softwareeinschränkungen** aktiv sind, werden unsignierte EXE-Dateien aus
-  Benutzerordnern häufig blockiert. Dann muss die IT eine Pfad- oder Hash-Regel freigeben – oder die EXE wird signiert
-  (Hash-Regeln müssen bei jeder neuen Version erneuert werden, eine Herausgeberregel für eine signierte EXE nicht).
+  Wenn per Gruppenrichtlinie **AppLocker, WDAC oder Softwareeinschränkungen** aktiv sind, werden unsignierte Programme aus
+  Benutzerordnern häufig blockiert. Am einfachsten: das MSI mit `ALLUSERS=1` nach `C:\Program Files` verteilen – die
+  AppLocker-Standardregeln erlauben diesen Ordner. Sonst muss die IT eine Pfad- oder Hash-Regel freigeben oder die
+  Dateien werden signiert.
 
 ## Bedienung
 
@@ -149,8 +176,8 @@ dotnet build                     # Debug-Build
 dotnet test                      # Unit-Tests (Größenberechnung, Regelauswahl)
 dotnet run --project src/LSMDisplayResizer
 
-# Single-File-EXE wie im Release
-dotnet publish src/LSMDisplayResizer -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o publish
+# Release-Dateien lokal bauen
+pwsh tools/Build-Release.ps1 -Version 1.2.3   # EXE + MSI nach artifacts/ (wie im Release)
 ```
 
 Projektstruktur:
@@ -167,12 +194,13 @@ src/LSMDisplayResizer/
   UI/                         Einstellungen, Regel-Dialog, Fensterauswahl, Log-Fenster
   Interop/                    P/Invoke-Deklarationen
 tests/LSMDisplayResizer.Tests/ xUnit-Tests
-tools/New-AppIcon.ps1         erzeugt die App-Icons
+installer/                    MSI-Installer (WiX Toolset 5)
+tools/                        Build-Release.ps1, Icons und Installer-Grafiken
 ```
 
 ### Release erstellen
 
-Version taggen und pushen – der Workflow `.github/workflows/release.yml` baut die EXE und legt das Release an:
+Version taggen und pushen – der Workflow `.github/workflows/release.yml` baut MSI und EXE und legt das Release an:
 
 ```powershell
 git tag v1.0.0

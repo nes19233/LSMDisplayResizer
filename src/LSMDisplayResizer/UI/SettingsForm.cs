@@ -276,7 +276,17 @@ internal sealed class SettingsForm : Form
         _chkHotkey.Checked = _settings.HotkeyEnabled;
         _txtHotkey.Enabled = _settings.HotkeyEnabled;
         ShowHotkey();
-        _chkAutostart.Checked = Autostart.IsEnabled();
+        if (Autostart.IsEnabledForAllUsers())
+        {
+            // Von der Installation pro Rechner eingerichtet (HKLM) – hier nicht änderbar.
+            _chkAutostart.Checked = true;
+            _chkAutostart.Enabled = false;
+            _chkAutostart.Text = "Mit Windows starten (von der Installation für alle Benutzer eingerichtet)";
+        }
+        else
+        {
+            _chkAutostart.Checked = Autostart.IsEnabled();
+        }
         _chkVerbose.Checked = _settings.VerboseLog;
 
         FillRules();
@@ -496,7 +506,7 @@ internal sealed class SettingsForm : Form
         _wallpaperPage.SaveTo(_settings.Wallpaper);
 
         var problems = new List<string>();
-        if (!Autostart.SetEnabled(_chkAutostart.Checked))
+        if (_chkAutostart.Enabled && !Autostart.SetEnabled(_chkAutostart.Checked))
             problems.Add("Der Autostart-Eintrag konnte nicht geändert werden (Details im Log).");
 
         string? applyError = _apply(_settings.Clone());

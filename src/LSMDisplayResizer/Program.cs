@@ -8,12 +8,14 @@ internal static class Program
     private const string ActivateEventName = @"Local\LSMDisplayResizer.Activate";
 
     [STAThread]
-    private static void Main()
+    private static void Main(string[] args)
     {
         using var mutex = new Mutex(initiallyOwned: true, MutexName, out bool createdNew);
         if (!createdNew)
         {
-            SignalRunningInstance();
+            // Beim Autostart (z. B. HKLM- und HKCU-Eintrag gleichzeitig) still beenden,
+            // bei manuellem Start die laufende Instanz ihre Einstellungen öffnen lassen.
+            if (!args.Contains(Settings.Autostart.Argument, StringComparer.OrdinalIgnoreCase)) SignalRunningInstance();
             return;
         }
 

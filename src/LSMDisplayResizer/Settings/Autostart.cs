@@ -3,18 +3,30 @@ using Microsoft.Win32;
 
 namespace LSMDisplayResizer.Settings;
 
-/// <summary>"Mit Windows starten" über HKCU\Software\Microsoft\Windows\CurrentVersion\Run.</summary>
+/// <summary>
+/// "Mit Windows starten" über HKCU\Software\Microsoft\Windows\CurrentVersion\Run.
+/// Eine Installation pro Rechner (MSI mit ALLUSERS=1) legt den Eintrag stattdessen unter HKLM an –
+/// der gilt dann für alle Benutzer und wird hier nur erkannt, nicht verändert.
+/// </summary>
 internal static class Autostart
 {
+    /// <summary>Kommandozeilenargument der Autostart-Einträge (App und MSI).</summary>
+    public const string Argument = "--autostart";
+
     private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
 
-    private static string Command => $"\"{Environment.ProcessPath}\"";
+    private static string Command => $"\"{Environment.ProcessPath}\" {Argument}";
 
-    public static bool IsEnabled()
+    public static bool IsEnabled() => HasEntry(Registry.CurrentUser);
+
+    /// <summary>true, wenn die Installation den Autostart für alle Benutzer eingerichtet hat (HKLM).</summary>
+    public static bool IsEnabledForAllUsers() => HasEntry(Registry.LocalMachine);
+
+    private static bool HasEntry(RegistryKey hive)
     {
         try
         {
-            using var key = Registry.CurrentUser.OpenSubKey(RunKey);
+            using var key = hive.OpenSubKey(RunKey);
             return key?.GetValue(AppInfo.Name) is string;
         }
         catch (Exception ex)

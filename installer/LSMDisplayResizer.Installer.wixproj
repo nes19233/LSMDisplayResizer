@@ -1,0 +1,41 @@
+<Project Sdk="WixToolset.Sdk/5.0.2">
+  <!--
+    MSI-Installer für LSM Display Resizer (WiX Toolset 5).
+
+    Voraussetzung: Die Single-File-EXE wurde vorher nach publish/ veröffentlicht (self-contained, win-x64).
+    Am einfachsten alles in einem Schritt: pwsh tools/Build-Release.ps1 -Version 1.2.3
+    Eigenschaften: Version (z. B. 1.2.3), AppPublishDir (Ordner mit LSMDisplayResizer.exe).
+  -->
+  <PropertyGroup>
+    <OutputName>LSMDisplayResizer</OutputName>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <Cultures>de-DE</Cultures>
+
+    <Version Condition="'$(Version)' == ''">0.1.0</Version>
+    <!-- MSI-Versionen sind rein numerisch: "1.2.0-beta1" → "1.2.0" -->
+    <MsiVersion>$([System.Text.RegularExpressions.Regex]::Match('$(Version)', '^\d+(\.\d+){0,2}').Value)</MsiVersion>
+
+    <AppPublishDir Condition="'$(AppPublishDir)' == ''">$(MSBuildThisFileDirectory)..\publish\</AppPublishDir>
+    <AppPublishDir>$([MSBuild]::EnsureTrailingSlash('$(AppPublishDir)'))</AppPublishDir>
+
+    <!--
+      ICE57/ICE105 kennen keine Pakete, die wahlweise pro Benutzer oder pro Rechner installieren (Scope="perUserOrMachine"):
+      ICE57 meldet die Startmenü-Verknüpfung mit HKMU-Schlüssel, ICE105 die CloseApplication-Aktion von WiX.
+      Beide sind hier Fehlalarme.
+      ICE61 warnt, weil gleiche Versionen sich bewusst gegenseitig ersetzen (AllowSameVersionUpgrades).
+    -->
+    <SuppressIces>ICE57;ICE61;ICE105</SuppressIces>
+
+    <DefineConstants>ProductVersion=$(MsiVersion);AppPublishDir=$(AppPublishDir);RepoRoot=$(MSBuildThisFileDirectory)..\</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="5.0.2" />
+    <PackageReference Include="WixToolset.Util.wixext" Version="5.0.2" />
+  </ItemGroup>
+
+  <Target Name="CheckPublishedApp" BeforeTargets="Build">
+    <Error Condition="!Exists('$(AppPublishDir)LSMDisplayResizer.exe')"
+           Text="$(AppPublishDir)LSMDisplayResizer.exe fehlt. Zuerst die App veröffentlichen (siehe Kommentar oben) oder tools/Build-Release.ps1 verwenden." />
+  </Target>
+</Project>

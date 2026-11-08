@@ -24,3 +24,9 @@ jobs:
 
       - name: Tests
         run: dotnet test LSMDisplayResizer.slnx -c Release --no-build
+
+      - name: MSI bauen (Prüfung, dass der Installer baut)
+        shell: pwsh
+        run: |
+          dotnet publish src/LSMDisplayResizer/LSMDisplayResizer.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish
+          dotnet build installer/LSMDisplayResizer.Installer.wixproj -c Release "-p:AppPublishDir=$PWD\publish\"
