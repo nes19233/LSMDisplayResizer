@@ -8,6 +8,12 @@ internal sealed class AppSettings
 
     public ResizeMode Mode { get; set; } = ResizeMode.Percent;
 
+    /// <summary>
+    /// Prozentual: Wie stark die Höhe mit dem Arbeitsbereich mitskaliert (0–100 %). 100 = voll proportional,
+    /// 0 = Höhe in Pixeln bleibt. Standard 67 % – die Höhe passt sich etwa zu zwei Dritteln an.
+    /// </summary>
+    public int PercentHeightScaling { get; set; } = 67;
+
     /// <summary>Feste Regeln (nur im Modus <see cref="ResizeMode.FixedRules"/>).</summary>
     public List<FixedRule> Rules { get; set; } = [];
 
@@ -75,6 +81,7 @@ internal sealed class AppSettings
             .ToList();
         DebounceMilliseconds = Math.Clamp(DebounceMilliseconds, 50, 5000);
         DisplayChangeDelaySeconds = Math.Clamp(DisplayChangeDelaySeconds, 2, 60);
+        PercentHeightScaling = Math.Clamp(PercentHeightScaling, 0, 100);
         if (!Enum.IsDefined(Mode)) Mode = ResizeMode.Percent;
         Wallpaper ??= new WallpaperSettings();
         Wallpaper.Normalize();

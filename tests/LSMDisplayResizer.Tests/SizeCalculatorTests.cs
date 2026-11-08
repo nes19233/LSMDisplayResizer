@@ -49,6 +49,40 @@ public class SizeCalculatorTests
     }
 
     [Fact]
+    public void HeightScaling_TwoThirds_GrowsLessThanProportional()
+    {
+        // A → B: Arbeitshöhe 1040 → 2100 (Faktor 2,02); 520 px hoch
+        var oldFrame = new Rectangle(192, 104, 1152, 520);
+
+        var full = SizeCalculator.Percent(WorkA, oldFrame, WorkB, oldFrame, keepCurrentPosition: false, heightScaling: 1.0);
+        var damped = SizeCalculator.Percent(WorkA, oldFrame, WorkB, oldFrame, keepCurrentPosition: false, heightScaling: 2.0 / 3);
+
+        Assert.Equal(1050, full.Height);
+        Assert.InRange(damped.Height, 820, 840);   // 520 × 2,02^(2/3) ≈ 831
+        Assert.Equal(full.Width, damped.Width);    // Breite immer voll proportional
+    }
+
+    [Fact]
+    public void HeightScaling_Zero_KeepsPixelHeight()
+    {
+        var oldFrame = new Rectangle(192, 104, 1152, 520);
+        var result = SizeCalculator.Percent(WorkA, oldFrame, WorkB, oldFrame, keepCurrentPosition: false, heightScaling: 0);
+        Assert.Equal(520, result.Height);
+    }
+
+    [Theory]
+    [InlineData(520)]
+    [InlineData(333)]
+    [InlineData(901)]
+    public void HeightScaling_RoundTrip_ReturnsToOriginalHeight(int height)
+    {
+        // Hin und zurück darf ein Fenster nicht wachsen oder schrumpfen
+        int there = SizeCalculator.ScaleHeight(height, 1040, 2100, 2.0 / 3);
+        int back = SizeCalculator.ScaleHeight(there, 2100, 1040, 2.0 / 3);
+        Assert.InRange(back, height - 1, height + 1);
+    }
+
+    [Fact]
     public void Result_IsAlwaysInsideWorkArea()
     {
         var oldFrame = new Rectangle(1500, 900, 400, 300);  // unten rechts auf A

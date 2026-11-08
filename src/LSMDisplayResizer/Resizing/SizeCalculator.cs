@@ -21,20 +21,33 @@ internal static class SizeCalculator
     /// <param name="currentFrame">Aktueller Fensterrahmen (bereits auf dem neuen Monitor).</param>
     /// <param name="keepCurrentPosition">true: linke obere Ecke von <paramref name="currentFrame"/> beibehalten
     /// (z. B. nach dem Ziehen mit der Maus), false: Position ebenfalls relativ übertragen.</param>
+    /// <param name="heightScaling">Wie stark die Höhe mitwächst bzw. -schrumpft: 1 = voll proportional zum Arbeitsbereich,
+    /// 0 = Höhe in Pixeln bleibt, dazwischen gedämpft (siehe <see cref="ScaleHeight"/>).</param>
     public static Rectangle Percent(Rectangle oldWork, Rectangle oldFrame, Rectangle newWork, Rectangle currentFrame,
-        bool keepCurrentPosition)
+        bool keepCurrentPosition, double heightScaling = 1.0)
     {
         if (oldWork.Width <= 0 || oldWork.Height <= 0) return ClampToWorkArea(currentFrame, newWork);
 
         double relW = (double)oldFrame.Width / oldWork.Width;
-        double relH = (double)oldFrame.Height / oldWork.Height;
-        var size = new Size(Round(relW * newWork.Width), Round(relH * newWork.Height));
+        var size = new Size(Round(relW * newWork.Width), ScaleHeight(oldFrame.Height, oldWork.Height, newWork.Height, heightScaling));
 
         Point location = keepCurrentPosition
             ? currentFrame.Location
             : TransferPosition(oldWork, oldFrame, newWork);
 
         return ClampToWorkArea(new Rectangle(location, size), newWork);
+    }
+
+    /// <summary>
+    /// Gedämpfte Höhenskalierung: Höhe × (neue Arbeitshöhe / alte Arbeitshöhe) ^ Faktor.
+    /// Faktor 1 = voll proportional, 0 = unverändert, 2/3 = ungefähr zwei Drittel der Änderung. Durch den Exponenten
+    /// landet ein Fenster nach Monitor A → B → A wieder exakt bei seiner Ausgangshöhe (kein Wachsen/Schrumpfen).
+    /// </summary>
+    public static int ScaleHeight(int height, int oldWorkHeight, int newWorkHeight, double factor)
+    {
+        if (oldWorkHeight <= 0 || newWorkHeight <= 0) return height;
+        factor = Math.Clamp(factor, 0, 1);
+        return Round(height * Math.Pow((double)newWorkHeight / oldWorkHeight, factor));
     }
 
     /// <summary>Feste Regel: Zielgröße aus der Regel, Position wie im prozentualen Modus.</summary>

@@ -15,6 +15,7 @@ internal sealed class SettingsForm : Form
     private readonly CheckBox _chkEnabled;
     private readonly RadioButton _radPercent;
     private readonly RadioButton _radRules;
+    private readonly NumericUpDown _numHeightScaling;
     private readonly CheckBox _chkFallback;
     private readonly CheckBox _chkKeepDrop;
     private readonly CheckBox _chkFullHeight;
@@ -79,6 +80,15 @@ internal sealed class SettingsForm : Form
         Ui.AddRow(general, _radPercent);
         Ui.AddRow(general, Ui.Text("Größe und Position relativ zum Arbeitsbereich (ohne Taskleiste) übertragen – " +
                                    "z. B. 60 % Breite auf Monitor A → 60 % Breite auf Monitor B.", hint: true, indent: 20));
+        var heightRow = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = new Padding(20, 0, 0, 0) };
+        heightRow.Controls.Add(new Label { Text = "Höhe mitskalieren:", AutoSize = true, Margin = new Padding(3, 6, 3, 3) });
+        _numHeightScaling = new NumericUpDown { Width = 60, Minimum = 0, Maximum = 100, TextAlign = HorizontalAlignment.Right, Margin = new Padding(3) };
+        heightRow.Controls.Add(_numHeightScaling);
+        heightRow.Controls.Add(new Label { Text = "%", AutoSize = true, Margin = new Padding(3, 6, 3, 3) });
+        Ui.AddRow(general, heightRow);
+        Ui.AddRow(general, Ui.Text("100 % = Höhe wächst/schrumpft voll mit dem Arbeitsbereich, 0 % = Höhe in Pixeln bleibt. " +
+                                   "Standard 67 %: Die Höhe passt sich etwa zu zwei Dritteln an. Die Breite skaliert immer voll.",
+            hint: true, indent: 20));
         _radRules = Ui.Radio("Feste Regeln");
         Ui.AddRow(general, _radRules);
         Ui.AddRow(general, Ui.Text("Zielgröße pro Programm und Monitor, siehe Registerkarte „Feste Regeln“.", hint: true, indent: 20));
@@ -276,6 +286,7 @@ internal sealed class SettingsForm : Form
 
         _radPercent.CheckedChanged += (_, _) => UpdateModeDependentControls();
         _radRules.CheckedChanged += (_, _) => UpdateModeDependentControls();
+        _chkFallback.CheckedChanged += (_, _) => UpdateModeDependentControls();
         _chkHotkey.CheckedChanged += (_, _) => _txtHotkey.Enabled = _chkHotkey.Checked;
 
         LoadValues();
@@ -294,6 +305,7 @@ internal sealed class SettingsForm : Form
         _chkEnabled.Checked = _settings.Enabled;
         _radPercent.Checked = _settings.Mode == ResizeMode.Percent;
         _radRules.Checked = _settings.Mode == ResizeMode.FixedRules;
+        _numHeightScaling.Value = Math.Clamp(_settings.PercentHeightScaling, 0, 100);
         _chkFallback.Checked = _settings.PercentFallbackWithoutRule;
         _chkKeepDrop.Checked = _settings.KeepDropPositionOnDrag;
         _chkFullHeight.Checked = _settings.TreatFullHeightAsSnapped;
@@ -325,6 +337,8 @@ internal sealed class SettingsForm : Form
     private void UpdateModeDependentControls()
     {
         _chkFallback.Enabled = _radRules.Checked;
+        // Gilt für den Prozentual-Modus und für die prozentuale Anpassung ohne passende Regel.
+        _numHeightScaling.Enabled = _radPercent.Checked || _chkFallback.Checked;
         _lblRulesModeHint.Text = _radRules.Checked
             ? string.Empty
             : "Modus ist „Prozentual“: Die Regeln werden derzeit nur für das Tastenkürzel verwendet.";
@@ -525,6 +539,7 @@ internal sealed class SettingsForm : Form
 
         _settings.Enabled = _chkEnabled.Checked;
         _settings.Mode = _radRules.Checked ? ResizeMode.FixedRules : ResizeMode.Percent;
+        _settings.PercentHeightScaling = (int)_numHeightScaling.Value;
         _settings.PercentFallbackWithoutRule = _chkFallback.Checked;
         _settings.KeepDropPositionOnDrag = _chkKeepDrop.Checked;
         _settings.TreatFullHeightAsSnapped = _chkFullHeight.Checked;
