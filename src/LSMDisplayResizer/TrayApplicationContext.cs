@@ -1,3 +1,4 @@
+using LSMDisplayResizer.Localization;
 using LSMDisplayResizer.Logging;
 using LSMDisplayResizer.Monitors;
 using LSMDisplayResizer.Settings;
@@ -19,6 +20,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly ContextMenuStrip _menu;
     private readonly ToolStripMenuItem _activeItem;
     private readonly ToolStripMenuItem _pausedItem;
+    private readonly ToolStripMenuItem _settingsItem;
+    private readonly ToolStripMenuItem _logItem;
+    private readonly ToolStripMenuItem _exitItem;
     private readonly Icon _iconActive;
     private readonly Icon _iconPaused;
     private readonly RegisteredWaitHandle _activateWait;
@@ -39,6 +43,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         bool firstStart = !_store.FileExists;
         _settings = _store.Load();
         Log.VerboseEnabled = _settings.VerboseLog;
+        L.Configure(_settings.Language);
         Log.Info($"{AppInfo.Name} {AppInfo.Version} gestartet{(AppInfo.IsElevated ? " (als Administrator)" : string.Empty)}");
 
         _iconActive = AppIcons.LoadTray(paused: false);
@@ -53,10 +58,14 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _menu.Items.Add(_activeItem);
         _menu.Items.Add(_pausedItem);
         _menu.Items.Add(new ToolStripSeparator());
-        _menu.Items.Add(new ToolStripMenuItem("Einstellungen …", null, (_, _) => ShowSettings()) { Font = new Font(_menu.Font, FontStyle.Bold) });
-        _menu.Items.Add(new ToolStripMenuItem("Log anzeigen …", null, (_, _) => ShowLog()));
+        _settingsItem = new ToolStripMenuItem("Einstellungen …", null, (_, _) => ShowSettings()) { Font = new Font(_menu.Font, FontStyle.Bold) };
+        _logItem = new ToolStripMenuItem("Log anzeigen …", null, (_, _) => ShowLog());
+        _exitItem = new ToolStripMenuItem("Beenden", null, (_, _) => ExitThread());
+        _menu.Items.Add(_settingsItem);
+        _menu.Items.Add(_logItem);
         _menu.Items.Add(new ToolStripSeparator());
-        _menu.Items.Add(new ToolStripMenuItem("Beenden", null, (_, _) => ExitThread()));
+        _menu.Items.Add(_exitItem);
+        ApplyMenuTexts();
 
         _tray = new NotifyIcon
         {
@@ -94,7 +103,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         {
             _store.Save(_settings);
             _tray.ShowBalloonTip(5000, AppInfo.Name,
-                "Läuft im Hintergrund. Rechtsklick auf das Symbol für Einstellungen.", ToolTipIcon.Info);
+                L.T("Läuft im Hintergrund. Rechtsklick auf das Symbol für Einstellungen."), ToolTipIcon.Info);
         }
     }
 
@@ -108,12 +117,31 @@ internal sealed class TrayApplicationContext : ApplicationContext
         Log.Info(enabled ? "Automatische Anpassung aktiviert" : "Automatische Anpassung pausiert");
     }
 
+    /// <summary>Menütexte in der aktuellen Sprache setzen (auch nach einem Sprachwechsel).</summary>
+    private void ApplyMenuTexts()
+    {
+        _activeItem.Text = L.T("Aktiv");
+        _pausedItem.Text = L.T("Pausiert");
+        _settingsItem.Text = L.T("Einstellungen …");
+        _logItem.Text = L.T("Log anzeigen …");
+        _exitItem.Text = L.T("Beenden");
+    }
+
+    /// <summary>Einstellungsfenster schließen und neu öffnen (z. B. nach einem Sprachwechsel).</summary>
+    private void ReopenSettings() =>
+        _uiContext.Post(_ =>
+        {
+            _settingsForm?.Close();
+            _settingsForm = null;
+            ShowSettings();
+        }, null);
+
     private void UpdateTrayState()
     {
         _activeItem.Checked = _settings.Enabled;
         _pausedItem.Checked = !_settings.Enabled;
         _tray.Icon = _settings.Enabled ? _iconActive : _iconPaused;
-        _tray.Text = $"{AppInfo.Name} – {(_settings.Enabled ? "aktiv" : "pausiert")}";
+        _tray.Text = L.F(_settings.Enabled ? "{0} – aktiv" : "{0} – pausiert", AppInfo.Name);
     }
 
     private void ShowSettings()
@@ -126,7 +154,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 return;
             }
 
-            _settingsForm = new SettingsForm(_settings.Clone(), _monitors, _wallpaper, ApplySettings, ShowLog);
+            _settingsForm = new SettingsForm(_settings.Clone(), _monitors, _wallpaper, ApplySettings, ShowLog, ReopenSettings);
             _settingsForm.FormClosed += (_, _) => _settingsForm = null;
             _settingsForm.Show();
             BringToFront(_settingsForm);
@@ -168,9 +196,16 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private string? ApplySettings(AppSettings settings)
     {
         settings.Normalize();
+        bool languageChanged = settings.Language != _settings.Language;
         _settings = settings;
         bool saved = _store.Save(settings);
         Log.VerboseEnabled = settings.VerboseLog;
+        if (languageChanged)
+        {
+            L.Configure(settings.Language);
+            ApplyMenuTexts();
+            UpdateTrayState();
+        }
         _tracker.UpdateSettings(settings);
         _wallpaper.NotifySettingsChanged();
         _separator.ApplySettings();
@@ -180,7 +215,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         Log.Info($"Einstellungen gespeichert (Modus: {(settings.Mode == ResizeMode.Percent ? "prozentual" : "feste Regeln")}, " +
                  $"{settings.Rules.Count} Regel(n), {settings.ExcludedProcesses.Count} ausgeschlossen)");
 
-        if (!saved) return "Die Einstellungen konnten nicht gespeichert werden (Details im Log). Sie gelten bis zum Beenden.";
+        if (!saved) return L.T("Die Einstellungen konnten nicht gespeichert werden (Details im Log). Sie gelten bis zum Beenden.");
         return hotkeyError;
     }
 
@@ -196,7 +231,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             return null;
         }
 
-        string message = $"Das Tastenkürzel {text} ist bereits von einem anderen Programm belegt. Bitte ein anderes wählen.";
+        string message = L.F("Das Tastenkürzel {0} ist bereits von einem anderen Programm belegt. Bitte ein anderes wählen.", text);
         Log.Warn(message);
         return message;
     }

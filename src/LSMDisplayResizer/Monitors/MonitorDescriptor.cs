@@ -25,7 +25,7 @@ internal sealed record MonitorDescriptor(
     public string ShortDeviceName => DeviceName.Replace(@"\\.\", string.Empty);
 
     public string DisplayName =>
-        $"{FriendlyName} – {ShortDeviceName} ({Bounds.Width}×{Bounds.Height}){(IsPrimary ? ", Hauptmonitor" : string.Empty)}";
+        $"{FriendlyName} – {ShortDeviceName} ({Bounds.Width}×{Bounds.Height}){(IsPrimary ? Localization.L.T(", Hauptmonitor") : string.Empty)}";
 
     /// <summary>
     /// Holt den Modellteil aus einem Geräteschnittstellenpfad:

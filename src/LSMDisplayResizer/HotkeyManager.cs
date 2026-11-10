@@ -72,14 +72,14 @@ internal sealed class HotkeyManager : NativeWindow, IDisposable
     public static string Format(Keys keys)
     {
         var parts = new List<string>();
-        if ((keys & Keys.Control) != 0) parts.Add("Strg");
+        if ((keys & Keys.Control) != 0) parts.Add(Localization.L.T("Strg"));
         if ((keys & Keys.Alt) != 0) parts.Add("Alt");
-        if ((keys & Keys.Shift) != 0) parts.Add("Umschalt");
+        if ((keys & Keys.Shift) != 0) parts.Add(Localization.L.T("Umschalt"));
 
         Keys code = keys & Keys.KeyCode;
         if (code != Keys.None && IsValid(keys | Keys.Control))
         {
-            parts.Add(code switch
+            parts.Add(Localization.L.T(code switch
             {
                 >= Keys.D0 and <= Keys.D9 => ((char)('0' + (code - Keys.D0))).ToString(),
                 >= Keys.NumPad0 and <= Keys.NumPad9 => "Num " + (code - Keys.NumPad0),
@@ -96,9 +96,9 @@ internal sealed class HotkeyManager : NativeWindow, IDisposable
                 Keys.PageUp => "Bild auf",
                 Keys.PageDown => "Bild ab",
                 _ => code.ToString(),
-            });
+            }));
         }
-        return parts.Count == 0 ? "(keins)" : string.Join(" + ", parts);
+        return parts.Count == 0 ? Localization.L.T("(keins)") : string.Join(" + ", parts);
     }
 
     public void Dispose()

@@ -1,3 +1,4 @@
+using LSMDisplayResizer.Localization;
 using LSMDisplayResizer.Monitors;
 using LSMDisplayResizer.Resizing;
 using LSMDisplayResizer.Settings;
@@ -49,7 +50,7 @@ internal sealed class RuleEditDialog : Form
         _cmbProcess.Text = rule.ProcessName;
 
         _cmbMonitor = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 320, Anchor = AnchorStyles.Left };
-        _cmbMonitor.Items.Add(new MonitorItem(FixedRule.Any, "Alle Monitore", null));
+        _cmbMonitor.Items.Add(new MonitorItem(FixedRule.Any, L.T("Alle Monitore"), null));
         foreach (var m in monitors) _cmbMonitor.Items.Add(new MonitorItem(m.DeviceId, m.DisplayName, m));
         SelectMonitor(rule);
 
@@ -65,6 +66,7 @@ internal sealed class RuleEditDialog : Form
         _numHeight.Value = Clamp(_numHeight, (decimal)rule.Height);
 
         _lblPreview = Ui.Text(string.Empty, hint: true);
+        _lblPreview.Tag = L.NoTranslate;
         _lblPreview.Anchor = AnchorStyles.Left;
 
         AddField(table, "Programm:", _cmbProcess);
@@ -94,6 +96,7 @@ internal sealed class RuleEditDialog : Form
         UpdatePreview();
 
         ResumeLayout(true);
+        L.Translate(this);
     }
 
     /// <summary>Die bearbeitete Regel (nur nach DialogResult.OK sinnvoll).</summary>
@@ -104,7 +107,7 @@ internal sealed class RuleEditDialog : Form
         {
             ProcessName = AppSettings.NormalizeProcessName(_cmbProcess.Text),
             MonitorId = item.Id,
-            MonitorName = item.Id == FixedRule.Any ? string.Empty : item.Name.Replace(" (nicht verbunden)", string.Empty),
+            MonitorName = item.Id == FixedRule.Any ? string.Empty : item.Name.Replace(L.T(" (nicht verbunden)"), string.Empty),
             Width = (double)_numWidth.Value,
             Height = (double)_numHeight.Value,
             Unit = _currentUnit,
@@ -132,7 +135,7 @@ internal sealed class RuleEditDialog : Form
 
         // Monitor der Regel ist gerade nicht angeschlossen → trotzdem auswählbar lassen.
         string name = string.IsNullOrEmpty(rule.MonitorName) ? rule.MonitorId : rule.MonitorName;
-        _cmbMonitor.SelectedIndex = _cmbMonitor.Items.Add(new MonitorItem(rule.MonitorId, name + " (nicht verbunden)", null));
+        _cmbMonitor.SelectedIndex = _cmbMonitor.Items.Add(new MonitorItem(rule.MonitorId, name + L.T(" (nicht verbunden)"), null));
     }
 
     private void OnUnitChanged()
@@ -193,7 +196,7 @@ internal sealed class RuleEditDialog : Form
         if (work is not { } wa)
         {
             _lblPreview.Text = _currentUnit == SizeUnit.Percent
-                ? "Pixelgröße hängt vom jeweiligen Monitor ab."
+                ? L.T("Pixelgröße hängt vom jeweiligen Monitor ab.")
                 : string.Empty;
             return;
         }
@@ -201,14 +204,14 @@ internal sealed class RuleEditDialog : Form
         var rule = new FixedRule { Width = (double)_numWidth.Value, Height = (double)_numHeight.Value, Unit = _currentUnit };
         var size = SizeCalculator.RuleSize(rule, wa);
         string clampNote = size.Width > wa.Width || size.Height > wa.Height ? " – wird auf den Arbeitsbereich begrenzt" : string.Empty;
-        _lblPreview.Text = $"Ergibt {size.Width} × {size.Height} px (Arbeitsbereich {wa.Width} × {wa.Height}){clampNote}";
+        _lblPreview.Text = L.F("Ergibt {0} × {1} px (Arbeitsbereich {2} × {3}){4}", size.Width, size.Height, wa.Width, wa.Height, clampNote);
     }
 
     private void OnOk(object? sender, EventArgs e)
     {
         if (AppSettings.NormalizeProcessName(_cmbProcess.Text).Length == 0)
         {
-            MessageBox.Show(this, "Bitte einen Programmnamen eingeben (z. B. chrome.exe).", Text,
+            MessageBox.Show(this, L.T("Bitte einen Programmnamen eingeben (z. B. chrome.exe)."), Text,
                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
             _cmbProcess.Focus();
             return;

@@ -1,3 +1,4 @@
+using LSMDisplayResizer.Localization;
 using LSMDisplayResizer.Monitors;
 using LSMDisplayResizer.Settings;
 using LSMDisplayResizer.Wallpaper;
@@ -31,6 +32,9 @@ internal sealed class SettingsForm : Form
     private readonly TextBox _txtHotkey;
     private readonly CheckBox _chkAutostart;
     private readonly CheckBox _chkVerbose;
+    private readonly ComboBox _cmbLanguage;
+    private readonly Action _reopen;
+    private readonly string _initialLanguage;
 
     // Regeln
     private readonly ListView _rules;
@@ -49,9 +53,11 @@ internal sealed class SettingsForm : Form
     private Keys _hotkey;
 
     public SettingsForm(AppSettings settings, MonitorManager monitors, WallpaperService wallpaper,
-        Func<AppSettings, string?> apply, Action showLog)
+        Func<AppSettings, string?> apply, Action showLog, Action reopen)
     {
         _settings = settings;
+        _reopen = reopen;
+        _initialLanguage = settings.Language;
         _wallpaper = wallpaper;
         _monitors = monitors;
         _apply = apply;
@@ -60,7 +66,8 @@ internal sealed class SettingsForm : Form
         SuspendLayout();
         AutoScaleMode = AutoScaleMode.Dpi;
         AutoScaleDimensions = new SizeF(96F, 96F);
-        Text = $"{AppInfo.Name} – Einstellungen";
+        Text = L.F("{0} – Einstellungen", AppInfo.Name);
+        Tag = L.NoTranslate; // Titel ist schon übersetzt
         Icon = AppIcons.LoadForm();
         StartPosition = FormStartPosition.CenterScreen;
         Size = new Size(800, 680);
@@ -175,11 +182,19 @@ internal sealed class SettingsForm : Form
         _chkVerbose = Ui.Check("Ausführliches Log (auch ignorierte Fenster protokollieren)");
         Ui.AddRow(general, _chkVerbose);
 
+        var langRow = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = Padding.Empty };
+        langRow.Controls.Add(new Label { Text = "Sprache:", AutoSize = true, Margin = new Padding(3, 7, 3, 3) });
+        _cmbLanguage = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 220, Margin = new Padding(3) };
+        _cmbLanguage.Items.AddRange(["Automatisch (Windows-Sprache)", "Deutsch", "English"]);
+        langRow.Controls.Add(_cmbLanguage);
+        Ui.AddRow(general, langRow);
+
         var adminHint = Ui.Text(
-            "Hinweis: Fenster von Programmen, die mit Administratorrechten laufen, kann die App nur anpassen, " +
-            "wenn sie selbst als Administrator gestartet wurde (Rechtsklick auf die EXE → „Als Administrator ausführen“). " +
-            (AppInfo.IsElevated ? "Aktuell: läuft als Administrator." : "Aktuell: läuft ohne Administratorrechte."),
+            L.T("Hinweis: Fenster von Programmen, die mit Administratorrechten laufen, kann die App nur anpassen, " +
+                "wenn sie selbst als Administrator gestartet wurde (Rechtsklick auf die EXE → „Als Administrator ausführen“).") + " " +
+            L.T(AppInfo.IsElevated ? "Aktuell: läuft als Administrator." : "Aktuell: läuft ohne Administratorrechte."),
             hint: true);
+        adminHint.Tag = L.NoTranslate;
         adminHint.Margin = new Padding(3, 16, 3, 3);
         Ui.AddRow(general, adminHint);
 
@@ -195,6 +210,7 @@ internal sealed class SettingsForm : Form
                                       "des Monitors. Passen mehrere Regeln, gewinnt die genaueste (bestimmtes Programm und Monitor vor „*“ " +
                                       "bzw. „Alle Monitore“)."), 2);
         _lblRulesModeHint = Ui.Text(string.Empty);
+        _lblRulesModeHint.Tag = L.NoTranslate;
         _lblRulesModeHint.ForeColor = Color.DarkGoldenrod;
         Ui.AddRow(rulesTable, _lblRulesModeHint, 2);
 
@@ -280,7 +296,8 @@ internal sealed class SettingsForm : Form
         footer.Margin = new Padding(0, 8, 0, 0);
         footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         footer.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        var version = Ui.Text($"Version {AppInfo.Version}", hint: true);
+        var version = Ui.Text(L.F("Version {0}", AppInfo.Version), hint: true);
+        version.Tag = L.NoTranslate;
         version.Anchor = AnchorStyles.Left;
         var leftButtons = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = Padding.Empty, Anchor = AnchorStyles.Left };
         leftButtons.Controls.Add(Ui.Button("Log anzeigen …", (_, _) => showLog()));
@@ -305,9 +322,18 @@ internal sealed class SettingsForm : Form
         };
         leftButtons.Controls.Add(projectLink);
         footer.Controls.Add(leftButtons, 0, 0);
-        var save = Ui.Button("Speichern", (_, _) => Save());
+        // Windows-üblich: OK = übernehmen und schließen, Abbrechen = verwerfen, Übernehmen = übernehmen, Fenster bleibt offen.
+        var ok = Ui.Button("OK", (_, _) => Save());
+        ok.MinimumSize = new Size(88, 0);
         var cancel = Ui.Button("Abbrechen", (_, _) => Close());
-        footer.Controls.Add(Ui.ButtonRow(cancel, save), 1, 0);
+        cancel.MinimumSize = new Size(88, 0);
+        var applyButton = Ui.Button("Übernehmen", (_, _) =>
+        {
+            // Sprache geändert: Fenster in der neuen Sprache neu öffnen.
+            if (SaveSettings() && _settings.Language != _initialLanguage) _reopen();
+        });
+        applyButton.MinimumSize = new Size(88, 0);
+        footer.Controls.Add(Ui.ButtonRow(applyButton, cancel, ok), 1, 0);
         Ui.AddRow(root, footer);
 
         CancelButton = cancel;
@@ -326,6 +352,7 @@ internal sealed class SettingsForm : Form
         _chkHotkey.CheckedChanged += (_, _) => _txtHotkey.Enabled = _chkHotkey.Checked;
 
         LoadValues();
+        L.Translate(this);
         Load += (_, _) => Ui.ScaleColumns(_rules);
     }
 
@@ -371,6 +398,7 @@ internal sealed class SettingsForm : Form
             _chkAutostart.Checked = Autostart.IsEnabled();
         }
         _chkVerbose.Checked = _settings.VerboseLog;
+        _cmbLanguage.SelectedIndex = _settings.Language switch { "de" => 1, "en" => 2, _ => 0 };
 
         FillRules();
         foreach (var p in _settings.ExcludedProcesses) _excluded.Items.Add(p);
@@ -384,7 +412,7 @@ internal sealed class SettingsForm : Form
         _numHeightScaling.Enabled = _radPercent.Checked || _chkFallback.Checked;
         _lblRulesModeHint.Text = _radRules.Checked
             ? string.Empty
-            : "Modus ist „Prozentual“: Die Regeln werden derzeit nur für das Tastenkürzel verwendet.";
+            : L.T("Modus ist „Prozentual“: Die Regeln werden derzeit nur für das Tastenkürzel verwendet.");
         _lblRulesModeHint.Visible = !_radRules.Checked;
     }
 
@@ -411,7 +439,7 @@ internal sealed class SettingsForm : Form
         Keys combo = e.KeyCode | e.Modifiers;
         if (!HotkeyManager.IsValid(combo))
         {
-            _txtHotkey.Text = "Mit Strg, Alt oder Umschalt kombinieren";
+            _txtHotkey.Text = L.T("Mit Strg, Alt oder Umschalt kombinieren");
             return;
         }
 
@@ -446,7 +474,7 @@ internal sealed class SettingsForm : Form
 
                 var item = new ListViewItem([
                     rule.ProcessName,
-                    rule.MonitorText + (connected ? string.Empty : " (nicht verbunden)"),
+                    L.T(rule.MonitorText) + (connected ? string.Empty : L.T(" (nicht verbunden)")),
                     rule.Width.ToString(rule.Unit == SizeUnit.Percent ? "0.#" : "0"),
                     rule.Height.ToString(rule.Unit == SizeUnit.Percent ? "0.#" : "0"),
                     rule.UnitText,
@@ -518,7 +546,7 @@ internal sealed class SettingsForm : Form
         if (duplicate != null)
         {
             var answer = MessageBox.Show(this,
-                $"Für {rule.ProcessName} auf „{rule.MonitorText}“ gibt es schon eine Regel. Ersetzen?",
+                L.F("Für {0} auf „{1}“ gibt es schon eine Regel. Ersetzen?", rule.ProcessName, L.T(rule.MonitorText)),
                 Text, MessageBoxButtons.YesNo, MessageBoxIcon.Question);
             if (answer != DialogResult.Yes) return;
             _settings.Rules.Remove(duplicate);
@@ -544,7 +572,7 @@ internal sealed class SettingsForm : Form
     private void DeleteSelectedRule()
     {
         if (SelectedRule is not { } rule) return;
-        var answer = MessageBox.Show(this, $"Regel für {rule.ProcessName} auf „{rule.MonitorText}“ löschen?",
+        var answer = MessageBox.Show(this, L.F("Regel für {0} auf „{1}“ löschen?", rule.ProcessName, L.T(rule.MonitorText)),
             Text, MessageBoxButtons.YesNo, MessageBoxIcon.Question);
         if (answer != DialogResult.Yes) return;
         _settings.Rules.Remove(rule);
@@ -579,7 +607,7 @@ internal sealed class SettingsForm : Form
     {
         if (_chkHotkey.Checked && !HotkeyManager.IsValid(_hotkey))
         {
-            MessageBox.Show(this, "Bitte eine Tastenkombination festlegen oder das Tastenkürzel ausschalten.", Text,
+            MessageBox.Show(this, L.T("Bitte eine Tastenkombination festlegen oder das Tastenkürzel ausschalten."), Text,
                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
             _txtHotkey.Focus();
             return false;
@@ -604,12 +632,13 @@ internal sealed class SettingsForm : Form
         _settings.HotkeyEnabled = _chkHotkey.Checked;
         if (HotkeyManager.IsValid(_hotkey)) _settings.Hotkey = _hotkey;
         _settings.VerboseLog = _chkVerbose.Checked;
+        _settings.Language = _cmbLanguage.SelectedIndex switch { 1 => "de", 2 => "en", _ => "auto" };
         _settings.ExcludedProcesses = _excluded.Items.Cast<string>().ToList();
         _wallpaperPage.SaveTo(_settings.Wallpaper);
 
         var problems = new List<string>();
         if (_chkAutostart.Enabled && !Autostart.SetEnabled(_chkAutostart.Checked))
-            problems.Add("Der Autostart-Eintrag konnte nicht geändert werden (Details im Log).");
+            problems.Add(L.T("Der Autostart-Eintrag konnte nicht geändert werden (Details im Log)."));
 
         string? applyError = _apply(_settings.Clone());
         if (applyError != null) problems.Add(applyError);
@@ -630,12 +659,12 @@ internal sealed class SettingsForm : Form
         _wallpaperPage.SaveTo(_settings.Wallpaper);
         if (!_settings.Wallpaper.IsConfigured || !File.Exists(_settings.Wallpaper.SourceImage))
         {
-            MessageBox.Show(this, "Bitte zuerst eine vorhandene Bilddatei auswählen.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, L.T("Bitte zuerst eine vorhandene Bilddatei auswählen."), Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
         SaveSettings();
 
-        _wallpaperPage.SetStatus("Hintergrundbild wird erstellt …");
+        _wallpaperPage.SetStatus(L.T("Hintergrundbild wird erstellt …"));
         try
         {
             _wallpaperPage.SetStatus(await _wallpaper.ApplyNowAsync(_settings.Wallpaper.Clone()));
@@ -643,7 +672,7 @@ internal sealed class SettingsForm : Form
         catch (Exception ex)
         {
             Logging.Log.Error("Hintergrundbild konnte nicht gesetzt werden", ex);
-            _wallpaperPage.SetStatus($"Hintergrundbild konnte nicht gesetzt werden: {ex.Message}");
+            _wallpaperPage.SetStatus(L.F("Hintergrundbild konnte nicht gesetzt werden: {0}", ex.Message));
         }
     }
 
@@ -659,13 +688,13 @@ internal sealed class SettingsForm : Form
             bool restored = WallpaperSetter.RestoreBackup();
             WallpaperService.ForgetLastApplied();
             _wallpaperPage.SetStatus(restored
-                ? "Vorheriges Hintergrundbild wiederhergestellt. Die automatische Aktualisierung wurde ausgeschaltet."
-                : "Es ist kein gesichertes Hintergrundbild vorhanden.");
+                ? L.T("Vorheriges Hintergrundbild wiederhergestellt. Die automatische Aktualisierung wurde ausgeschaltet.")
+                : L.T("Es ist kein gesichertes Hintergrundbild vorhanden."));
         }
         catch (Exception ex)
         {
             Logging.Log.Error("Hintergrundbild konnte nicht wiederhergestellt werden", ex);
-            _wallpaperPage.SetStatus($"Wiederherstellen fehlgeschlagen: {ex.Message}");
+            _wallpaperPage.SetStatus(L.F("Wiederherstellen fehlgeschlagen: {0}", ex.Message));
         }
         return Task.CompletedTask;
     }

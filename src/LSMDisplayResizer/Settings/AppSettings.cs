@@ -61,6 +61,9 @@ internal sealed class AppSettings
     /// <summary>Ausführliches Log, z. B. warum ein Fenster ignoriert wurde.</summary>
     public bool VerboseLog { get; set; }
 
+    /// <summary>Sprache der Oberfläche: "auto" (Windows-Sprache), "de" oder "en".</summary>
+    public string Language { get; set; } = "auto";
+
     /// <summary>Monitorübergreifendes Hintergrundbild.</summary>
     public WallpaperSettings Wallpaper { get; set; } = new();
 
@@ -92,6 +95,7 @@ internal sealed class AppSettings
         DebounceMilliseconds = Math.Clamp(DebounceMilliseconds, 50, 5000);
         DisplayChangeDelaySeconds = Math.Clamp(DisplayChangeDelaySeconds, 2, 60);
         PercentHeightScaling = Math.Clamp(PercentHeightScaling, 0, 100);
+        if (Language is not ("auto" or "de" or "en")) Language = "auto";
         if (!Enum.IsDefined(Mode)) Mode = ResizeMode.Percent;
         Wallpaper ??= new WallpaperSettings();
         Wallpaper.Normalize();

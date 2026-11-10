@@ -2,6 +2,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Globalization;
 using System.Text;
+using LSMDisplayResizer.Localization;
 using LSMDisplayResizer.Logging;
 using LSMDisplayResizer.Monitors;
 using LSMDisplayResizer.Settings;
@@ -114,7 +115,7 @@ internal sealed class WallpaperService : IDisposable
 
     private async Task<string> ApplyAsync(WallpaperSettings ws, List<MonitorLayoutInput> inputs, string signature)
     {
-        if (_busy) return "Das Hintergrundbild wird gerade erstellt …";
+        if (_busy) return L.T("Das Hintergrundbild wird gerade erstellt …");
         _busy = true;
         try
         {
@@ -167,7 +168,7 @@ internal sealed class WallpaperService : IDisposable
                                           "Häufige Ursachen: eine Gruppenrichtlinie, oder die App wurde aus einer anderen (Store-)App " +
                                           "heraus gestartet – dann bitte die App beenden und über das Startmenü neu starten.";
                 Log.Warn($"{notApplied} Bild: {path}");
-                return notApplied;
+                return L.T(notApplied);
             }
 
             // Erst jetzt – nach bestätigtem Erfolg – ältere Bilder entfernen.
@@ -175,15 +176,15 @@ internal sealed class WallpaperService : IDisposable
             WriteSignature(signature);
 
             var message = new StringBuilder();
-            message.Append($"Hintergrundbild gesetzt: {layout.VirtualBounds.Width} × {layout.VirtualBounds.Height} px, ");
-            message.Append(layout.EffectiveMode == WallpaperMode.Physical ? "nach physischer Größe" : "nach Pixeln");
-            message.Append($", {inputs.Count} Monitor(e).");
-            if (layout.Warning != null) message.Append(' ').Append(layout.Warning);
+            message.Append(L.F("Hintergrundbild gesetzt: {0} × {1} px, {2}, {3} Monitor(e).",
+                layout.VirtualBounds.Width, layout.VirtualBounds.Height,
+                L.T(layout.EffectiveMode == WallpaperMode.Physical ? "nach physischer Größe" : "nach Pixeln"), inputs.Count));
+            if (layout.Warning != null) message.Append(' ').Append(L.T(layout.Warning));
             if (layout.MaxUpscale > 1.05)
             {
                 var rec = layout.RecommendedSourceSize(imageSize);
-                message.Append($" Das Bild wird bis zu {layout.MaxUpscale:0.0}-fach vergrößert (unscharf); " +
-                               $"empfohlen sind mindestens {rec.Width} × {rec.Height} px.");
+                message.Append(' ').Append(L.F("Das Bild wird bis zu {0:0.0}-fach vergrößert (unscharf); empfohlen sind mindestens {1} × {2} px.",
+                    layout.MaxUpscale, rec.Width, rec.Height));
             }
 
             Log.Info(message.ToString());

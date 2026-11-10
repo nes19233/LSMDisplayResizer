@@ -1,5 +1,6 @@
 using System.Drawing.Drawing2D;
 using System.Globalization;
+using LSMDisplayResizer.Localization;
 using LSMDisplayResizer.Monitors;
 using LSMDisplayResizer.Settings;
 using LSMDisplayResizer.Wallpaper;
@@ -71,6 +72,7 @@ internal sealed class WallpaperPage : UserControl
         imageRow.Controls.Add(Ui.Button("Durchsuchen …", (_, _) => BrowseImage()), 1, 0);
         Ui.AddRow(table, imageRow);
         _lblImageInfo = Ui.Text(string.Empty, hint: true);
+        _lblImageInfo.Tag = L.NoTranslate; // Text wird dynamisch und bereits übersetzt gesetzt
         Ui.AddRow(table, _lblImageInfo);
 
         // --- Aufteilung ---
@@ -141,6 +143,7 @@ internal sealed class WallpaperPage : UserControl
         };
         Ui.AddRow(table, _preview, sizeType: SizeType.Absolute, height: 190);
         _lblStatus = Ui.Text(string.Empty);
+        _lblStatus.Tag = L.NoTranslate;
         Ui.AddRow(table, _lblStatus);
 
         _chkAuto = Ui.Check("Automatisch neu erstellen, wenn sich die Monitoranordnung ändert");
@@ -148,7 +151,7 @@ internal sealed class WallpaperPage : UserControl
         Ui.AddRow(table, _chkAuto);
 
         var actions = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = new Padding(0, 6, 0, 0) };
-        _btnApply = Ui.Button("Speichern und als Hintergrund setzen", async (_, _) => await RunBusy(applyRequested));
+        _btnApply = Ui.Button("Übernehmen und als Hintergrund setzen", async (_, _) => await RunBusy(applyRequested));
         _btnApply.Font = new Font(_btnApply.Font, FontStyle.Bold);
         _btnRestore = Ui.Button("Vorherigen Hintergrund wiederherstellen", async (_, _) => await RunBusy(restoreRequested));
         actions.Controls.Add(_btnApply);
@@ -254,7 +257,7 @@ internal sealed class WallpaperPage : UserControl
         {
             var size = WallpaperService.GetPhysicalSize(m, ws);
             int i = _grid.Rows.Add(m.DisplayName, $"{m.Bounds.Width} × {m.Bounds.Height}",
-                size.WidthMm, size.HeightMm, string.Empty, size.OffsetYMm, size.Source);
+                size.WidthMm, size.HeightMm, string.Empty, size.OffsetYMm, L.T(size.Source));
             _grid.Rows[i].Tag = m;
             UpdateDiagonal(_grid.Rows[i]);
         }
@@ -281,7 +284,7 @@ internal sealed class WallpaperPage : UserControl
         if (double.TryParse(Convert.ToString(row.Cells[e.ColumnIndex].Value, CultureInfo.CurrentCulture),
                 NumberStyles.Float, CultureInfo.CurrentCulture, out double v))
             row.Cells[e.ColumnIndex].Value = v;
-        row.Cells[(int)Col.Source].Value = "angepasst";
+        row.Cells[(int)Col.Source].Value = L.T("angepasst");
         UpdateDiagonal(row);
         SchedulePreview();
     }
@@ -321,8 +324,9 @@ internal sealed class WallpaperPage : UserControl
     {
         using var dlg = new OpenFileDialog
         {
-            Title = "Hintergrundbild auswählen",
-            Filter = "Bilder|" + string.Join(";", WallpaperRenderer.SupportedExtensions.Select(e => "*" + e)) + "|Alle Dateien|*.*",
+            Title = L.T("Hintergrundbild auswählen"),
+            Filter = L.T("Bilder") + "|" + string.Join(";", WallpaperRenderer.SupportedExtensions.Select(e => "*" + e)) +
+                     "|" + L.T("Alle Dateien") + "|*.*",
         };
         try
         {
@@ -353,18 +357,18 @@ internal sealed class WallpaperPage : UserControl
 
         if (path.Length == 0)
         {
-            _lblImageInfo.Text = "Kein Bild ausgewählt – die Funktion ist nicht aktiv.";
+            _lblImageInfo.Text = L.T("Kein Bild ausgewählt – die Funktion ist nicht aktiv.");
             SchedulePreview();
             return;
         }
         if (!File.Exists(path))
         {
-            _lblImageInfo.Text = "Datei nicht gefunden.";
+            _lblImageInfo.Text = L.T("Datei nicht gefunden.");
             SchedulePreview();
             return;
         }
 
-        _lblImageInfo.Text = "Bild wird geladen …";
+        _lblImageInfo.Text = L.T("Bild wird geladen …");
         try
         {
             var (preview, size) = await Task.Run(() =>
@@ -380,12 +384,12 @@ internal sealed class WallpaperPage : UserControl
             }
             _previewSource = preview;
             _imageSize = size;
-            _lblImageInfo.Text = $"Bildgröße: {size.Width} × {size.Height} px";
+            _lblImageInfo.Text = L.F("Bildgröße: {0} × {1} px", size.Width, size.Height);
         }
         catch (Exception ex)
         {
             if (generation != _loadGeneration) return;
-            _lblImageInfo.Text = $"Bild kann nicht geladen werden: {ex.Message}";
+            _lblImageInfo.Text = L.F("Bild kann nicht geladen werden: {0}", ex.Message);
         }
         SchedulePreview();
     }
@@ -472,18 +476,18 @@ internal sealed class WallpaperPage : UserControl
             if (layout.MaxUpscale > 1.05)
             {
                 var rec = layout.RecommendedSourceSize(_imageSize);
-                parts.Add($"Das Bild ist zu klein und wird bis zu {layout.MaxUpscale:0.0}-fach vergrößert (unscharf). " +
-                          $"Empfohlen: mindestens {rec.Width} × {rec.Height} px.");
+                parts.Add(L.F("Das Bild ist zu klein und wird bis zu {0:0.0}-fach vergrößert (unscharf). Empfohlen: mindestens {1} × {2} px.",
+                    layout.MaxUpscale, rec.Width, rec.Height));
                 warn = true;
             }
             else
             {
-                parts.Add("Die Bildauflösung reicht für alle Monitore.");
+                parts.Add(L.T("Die Bildauflösung reicht für alle Monitore."));
             }
         }
         if (layout.Warning != null)
         {
-            parts.Add(layout.Warning);
+            parts.Add(L.T(layout.Warning));
             warn = true;
         }
         if (layout.EffectiveMode == WallpaperMode.Physical)
@@ -491,14 +495,14 @@ internal sealed class WallpaperPage : UserControl
             var sorted = layout.Slices.Select(s => s.Monitor).OrderBy(m => m.PixelBounds.Left).ToList();
             var shared = sorted.Zip(sorted.Skip(1))
                 .Where(p => p.First.IsSameDeviceAs(p.Second))
-                .Select(p => $"{ShortName(p.First)} und {ShortName(p.Second)}")
+                .Select(p => L.F("{0} und {1}", ShortName(p.First), ShortName(p.Second)))
                 .ToList();
             if (shared.Count > 0)
-                parts.Add($"{string.Join(", ", shared)} sind Bildflächen desselben Monitors (Bild-neben-Bild) – dazwischen wird kein Rahmen abgezogen.");
+                parts.Add(L.F("{0} sind Bildflächen desselben Monitors (Bild-neben-Bild) – dazwischen wird kein Rahmen abgezogen.", string.Join(", ", shared)));
         }
         if (WallpaperSetter.GetPolicyHint() is { } policy)
         {
-            parts.Add(policy);
+            parts.Add(L.T(policy));
             warn = true;
         }
 

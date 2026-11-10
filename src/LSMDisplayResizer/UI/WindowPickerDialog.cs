@@ -1,3 +1,4 @@
+using LSMDisplayResizer.Localization;
 using LSMDisplayResizer.Monitors;
 using LSMDisplayResizer.Tracking;
 
@@ -63,6 +64,7 @@ internal sealed class WindowPickerDialog : Form
         CancelButton = cancel;
         Controls.Add(table);
         ResumeLayout(true);
+        L.Translate(this);
 
         Load += (_, _) =>
         {
@@ -92,7 +94,7 @@ internal sealed class WindowPickerDialog : Form
 
                 var item = new ListViewItem([
                     w.ProcessName,
-                    string.IsNullOrWhiteSpace(w.Title) ? "(ohne Titel)" : w.Title,
+                    string.IsNullOrWhiteSpace(w.Title) ? L.T("(ohne Titel)") : w.Title,
                     monitor.DisplayName,
                     $"{w.FrameRect.Width} × {w.FrameRect.Height}",
                     percent,
@@ -122,7 +124,7 @@ internal sealed class WindowPickerDialog : Form
         _selectedMonitor = monitor ?? m;
         if (reason == SkipReason.Invalid)
         {
-            MessageBox.Show(this, "Das Fenster existiert nicht mehr.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, L.T("Das Fenster existiert nicht mehr."), Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
             Fill();
             return;
         }

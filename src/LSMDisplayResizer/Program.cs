@@ -61,7 +61,8 @@ internal static class Program
         }
         catch
         {
-            MessageBox.Show($"{AppInfo.Name} läuft bereits (Symbol im Infobereich unten rechts).",
+            Localization.L.Configure(new Settings.SettingsStore(AppInfo.SettingsFile).Load().Language);
+            MessageBox.Show(Localization.L.F("{0} läuft bereits (Symbol im Infobereich unten rechts).", AppInfo.Name),
                 AppInfo.Name, MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
     }

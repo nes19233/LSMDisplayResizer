@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text;
+using LSMDisplayResizer.Localization;
 using LSMDisplayResizer.Logging;
 
 namespace LSMDisplayResizer.UI;
@@ -16,7 +17,8 @@ internal sealed class LogForm : Form
         SuspendLayout();
         AutoScaleMode = AutoScaleMode.Dpi;
         AutoScaleDimensions = new SizeF(96F, 96F);
-        Text = $"{AppInfo.Name} {AppInfo.Version} – Log";
+        Text = L.F("{0} {1} – Log", AppInfo.Name, AppInfo.Version);
+        Tag = L.NoTranslate; // Titel ist schon übersetzt
         Icon = AppIcons.LoadForm();
         StartPosition = FormStartPosition.CenterScreen;
         Size = new Size(900, 480);
@@ -53,6 +55,7 @@ internal sealed class LogForm : Form
 
         Controls.Add(table);
         ResumeLayout(true);
+        L.Translate(this);
 
         var sb = new StringBuilder();
         foreach (var entry in Log.GetRecent()) sb.Append(entry).Append(Environment.NewLine);
@@ -95,7 +98,7 @@ internal sealed class LogForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, $"{path} konnte nicht geöffnet werden:\n{ex.Message}", Text,
+            MessageBox.Show(this, L.F("{0} konnte nicht geöffnet werden:\n{1}", path, ex.Message), Text,
                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
     }
