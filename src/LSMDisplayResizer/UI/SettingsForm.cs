@@ -87,8 +87,9 @@ internal sealed class SettingsForm : Form
         heightRow.Controls.Add(_numHeightScaling);
         heightRow.Controls.Add(new Label { Text = "%", AutoSize = true, Margin = new Padding(3, 6, 3, 3) });
         Ui.AddRow(general, heightRow);
-        Ui.AddRow(general, Ui.Text("100 % = Höhe wächst/schrumpft voll mit dem Arbeitsbereich, 0 % = Höhe in Pixeln bleibt. " +
-                                   "Standard 67 %: Die Höhe passt sich etwa zu zwei Dritteln an. Die Breite skaliert immer voll.",
+        Ui.AddRow(general, Ui.Text("100 % = Höhe wächst/schrumpft voll mit dem Arbeitsbereich, 0 % = sichtbare Höhe bleibt gleich. " +
+                                   "Standard 67 %: Die Höhe passt sich etwa zu zwei Dritteln an. Unterschiedliche Skalierung (z. B. Laptop 200 %, " +
+                                   "Monitor 100 %) wird berücksichtigt. Die Breite skaliert immer voll.",
             hint: true, indent: 20));
         _radRules = Ui.Radio("Feste Regeln");
         Ui.AddRow(general, _radRules);

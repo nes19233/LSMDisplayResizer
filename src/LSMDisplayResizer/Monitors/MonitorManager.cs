@@ -45,7 +45,20 @@ internal sealed class MonitorManager
             id.FriendlyName,
             mi.rcMonitor.ToRectangle(),
             mi.rcWork.ToRectangle(),
-            (mi.dwFlags & MONITORINFOF_PRIMARY) != 0);
+            (mi.dwFlags & MONITORINFOF_PRIMARY) != 0,
+            ReadScale(hmon));
+    }
+
+    private static double ReadScale(IntPtr hmon)
+    {
+        try
+        {
+            return GetDpiForMonitor(hmon, MDT_EFFECTIVE_DPI, out uint dpiX, out _) == 0 && dpiX > 0 ? dpiX / 96.0 : 1.0;
+        }
+        catch
+        {
+            return 1.0; // älteres Windows ohne shcore-Funktion
+        }
     }
 
     public IReadOnlyList<MonitorDescriptor> GetAll()

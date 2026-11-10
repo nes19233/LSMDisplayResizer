@@ -49,6 +49,9 @@ internal sealed class WindowTracker : IDisposable
         /// <summary>Arbeitsbereich des Monitors, auf dem <see cref="Frame"/> aufgenommen wurde.</summary>
         public Rectangle WorkArea;
 
+        /// <summary>Anzeigeskalierung des Monitors, auf dem <see cref="Frame"/> aufgenommen wurde.</summary>
+        public double Scale = 1.0;
+
         /// <summary>false, solange das Fenster nie im normalen Zustand gesehen wurde.</summary>
         public bool HasNormalFrame;
 
@@ -70,6 +73,7 @@ internal sealed class WindowTracker : IDisposable
             MonitorName = monitor.DisplayName;
             Frame = f;
             WorkArea = monitor.WorkArea;
+            Scale = monitor.Scale;
             HasNormalFrame = true;
         }
     }
@@ -343,7 +347,7 @@ internal sealed class WindowTracker : IDisposable
             now - tw.FirstSeen < NewWindowGrace ? "Fenster ist neu" :
             null;
 
-        var previous = new MonitorChange(tw.MonitorName, tw.WorkArea, tw.Frame);
+        var previous = new MonitorChange(tw.MonitorName, tw.WorkArea, tw.Frame, tw.Scale);
         tw.Record(monitor, snap.FrameRect);
         RememberLayout(tw, monitor, snap.FrameRect, maximized: false);
 
@@ -357,7 +361,7 @@ internal sealed class WindowTracker : IDisposable
     }
 
     /// <summary>Zustand des Fensters auf dem vorherigen Monitor.</summary>
-    private readonly record struct MonitorChange(string OldMonitorName, Rectangle OldWorkArea, Rectangle OldFrame);
+    private readonly record struct MonitorChange(string OldMonitorName, Rectangle OldWorkArea, Rectangle OldFrame, double OldScale);
 
     private void OnMonitorChanged(WindowSnapshot window, MonitorChange previous, MonitorDescriptor target,
         bool byDrag, TrackedWindow tw)
@@ -379,7 +383,7 @@ internal sealed class WindowTracker : IDisposable
         else if (_settings.Mode == ResizeMode.Percent || _settings.PercentFallbackWithoutRule)
         {
             targetFrame = SizeCalculator.Percent(previous.OldWorkArea, previous.OldFrame, target.WorkArea,
-                window.FrameRect, keepPosition, _settings.PercentHeightScaling / 100.0);
+                window.FrameRect, keepPosition, _settings.PercentHeightScaling / 100.0, previous.OldScale, target.Scale);
             how = _settings.Mode == ResizeMode.Percent ? "prozentual" : "prozentual, keine Regel";
         }
         else
@@ -611,7 +615,7 @@ internal sealed class WindowTracker : IDisposable
                 return false;
             }
 
-            var previous = new MonitorChange(tw.MonitorName, tw.WorkArea, tw.Frame);
+            var previous = new MonitorChange(tw.MonitorName, tw.WorkArea, tw.Frame, tw.Scale);
             tw.Record(monitor, snap.FrameRect);
             RememberLayout(tw, monitor, snap.FrameRect, maximized: false);
             if (!adjust) return false;

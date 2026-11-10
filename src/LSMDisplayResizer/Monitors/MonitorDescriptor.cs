@@ -10,6 +10,7 @@ namespace LSMDisplayResizer.Monitors;
 /// <param name="FriendlyName">Lesbarer Name, z. B. "DELL U2720Q".</param>
 /// <param name="Bounds">Gesamter Monitorbereich (rcMonitor).</param>
 /// <param name="WorkArea">Arbeitsbereich ohne Taskleiste (rcWork).</param>
+/// <param name="Scale">Anzeigeskalierung (1,0 = 100 %, 2,0 = 200 %).</param>
 internal sealed record MonitorDescriptor(
     IntPtr Handle,
     string DeviceName,
@@ -18,7 +19,8 @@ internal sealed record MonitorDescriptor(
     string FriendlyName,
     Rectangle Bounds,
     Rectangle WorkArea,
-    bool IsPrimary)
+    bool IsPrimary,
+    double Scale = 1.0)
 {
     public string ShortDeviceName => DeviceName.Replace(@"\\.\", string.Empty);
 

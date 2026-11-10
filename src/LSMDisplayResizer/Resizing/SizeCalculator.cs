@@ -22,14 +22,17 @@ internal static class SizeCalculator
     /// <param name="keepCurrentPosition">true: linke obere Ecke von <paramref name="currentFrame"/> beibehalten
     /// (z. B. nach dem Ziehen mit der Maus), false: Position ebenfalls relativ übertragen.</param>
     /// <param name="heightScaling">Wie stark die Höhe mitwächst bzw. -schrumpft: 1 = voll proportional zum Arbeitsbereich,
-    /// 0 = Höhe in Pixeln bleibt, dazwischen gedämpft (siehe <see cref="ScaleHeight"/>).</param>
+    /// 0 = sichtbare Höhe bleibt gleich, dazwischen gedämpft (siehe <see cref="ScaleHeight"/>).</param>
+    /// <param name="oldScale">Anzeigeskalierung des alten Monitors (1,0 = 100 %).</param>
+    /// <param name="newScale">Anzeigeskalierung des neuen Monitors.</param>
     public static Rectangle Percent(Rectangle oldWork, Rectangle oldFrame, Rectangle newWork, Rectangle currentFrame,
-        bool keepCurrentPosition, double heightScaling = 1.0)
+        bool keepCurrentPosition, double heightScaling = 1.0, double oldScale = 1.0, double newScale = 1.0)
     {
         if (oldWork.Width <= 0 || oldWork.Height <= 0) return ClampToWorkArea(currentFrame, newWork);
 
         double relW = (double)oldFrame.Width / oldWork.Width;
-        var size = new Size(Round(relW * newWork.Width), ScaleHeight(oldFrame.Height, oldWork.Height, newWork.Height, heightScaling));
+        var size = new Size(Round(relW * newWork.Width),
+            ScaleHeight(oldFrame.Height, oldWork.Height, newWork.Height, heightScaling, oldScale, newScale));
 
         Point location = keepCurrentPosition
             ? currentFrame.Location
@@ -39,15 +42,22 @@ internal static class SizeCalculator
     }
 
     /// <summary>
-    /// Gedämpfte Höhenskalierung: Höhe × (neue Arbeitshöhe / alte Arbeitshöhe) ^ Faktor.
-    /// Faktor 1 = voll proportional, 0 = unverändert, 2/3 = ungefähr zwei Drittel der Änderung. Durch den Exponenten
-    /// landet ein Fenster nach Monitor A → B → A wieder exakt bei seiner Ausgangshöhe (kein Wachsen/Schrumpfen).
+    /// Gedämpfte Höhenskalierung, gerechnet in <b>sichtbarer</b> Größe (Pixel ÷ Skalierung): Ein Laptop-Display mit
+    /// 2880 × 1800 bei 200 % ist sichtbar kleiner als ein Monitor mit 1440 Pixeln Höhe bei 100 % – obwohl es mehr Pixel hat.
+    /// <para>sichtbare Höhe neu = sichtbare Höhe alt × (sichtbare Arbeitshöhe neu / alt) ^ Faktor</para>
+    /// Faktor 1 = voll proportional zum Arbeitsbereich, 0 = sichtbare Höhe bleibt gleich, 2/3 = etwa zwei Drittel der
+    /// Änderung. Durch den Exponenten landet ein Fenster nach Monitor A → B → A exakt wieder bei seiner Ausgangshöhe.
     /// </summary>
-    public static int ScaleHeight(int height, int oldWorkHeight, int newWorkHeight, double factor)
+    public static int ScaleHeight(int height, int oldWorkHeight, int newWorkHeight, double factor,
+        double oldScale = 1.0, double newScale = 1.0)
     {
         if (oldWorkHeight <= 0 || newWorkHeight <= 0) return height;
+        if (oldScale <= 0) oldScale = 1.0;
+        if (newScale <= 0) newScale = 1.0;
         factor = Math.Clamp(factor, 0, 1);
-        return Round(height * Math.Pow((double)newWorkHeight / oldWorkHeight, factor));
+
+        double ratio = (newWorkHeight / newScale) / (oldWorkHeight / oldScale); // Verhältnis der sichtbaren Arbeitshöhen
+        return Round(height * (newScale / oldScale) * Math.Pow(ratio, factor));
     }
 
     /// <summary>Feste Regel: Zielgröße aus der Regel, Position wie im prozentualen Modus.</summary>

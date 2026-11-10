@@ -82,6 +82,51 @@ public class SizeCalculatorTests
         Assert.InRange(back, height - 1, height + 1);
     }
 
+    // Dell-Hälfte 1720 × 1392 bei 100 %, Laptop 2880 × 1704 bei 200 % (sichtbar nur 1440 × 852)
+    private static readonly Rectangle WorkDell = new(0, 0, 1720, 1392);
+    private static readonly Rectangle WorkLaptop = new(0, 0, 2880, 1704);
+
+    [Fact]
+    public void HeightScaling_DifferentDpi_VisiblySmallerScreen_GetsLargerShare()
+    {
+        // Fenster 829 px hoch = 60 % der Dell-Höhe. Der Laptop hat zwar mehr Pixel, ist aber sichtbar kleiner:
+        // Das Fenster muss dort einen GRÖSSEREN Anteil der Höhe bekommen (vorher fälschlich kleiner).
+        var oldFrame = new Rectangle(100, 100, 1370, 829);
+
+        var result = SizeCalculator.Percent(WorkDell, oldFrame, WorkLaptop, oldFrame, keepCurrentPosition: false,
+            heightScaling: 2.0 / 3, oldScale: 1.0, newScale: 2.0);
+
+        double oldShare = 829.0 / 1392;
+        double newShare = (double)result.Height / 1704;
+        Assert.True(newShare > oldShare, $"Anteil vorher {oldShare:P1}, nachher {newShare:P1}");
+        Assert.InRange(result.Height, 1180, 1210);  // ≈ 1194 px
+    }
+
+    [Fact]
+    public void HeightScaling_FullFactor_IsProportional_RegardlessOfDpi()
+    {
+        var oldFrame = new Rectangle(100, 100, 1370, 829);
+        var result = SizeCalculator.Percent(WorkDell, oldFrame, WorkLaptop, oldFrame, false, 1.0, 1.0, 2.0);
+        Assert.Equal((int)Math.Round(829.0 * 1704 / 1392), result.Height);
+    }
+
+    [Fact]
+    public void HeightScaling_Zero_KeepsVisibleHeight_AcrossDpi()
+    {
+        // 0 % = sichtbar gleich hoch: bei doppelter Skalierung doppelt so viele Pixel
+        Assert.Equal(1000, SizeCalculator.ScaleHeight(500, 1392, 1704, 0, oldScale: 1.0, newScale: 2.0));
+    }
+
+    [Theory]
+    [InlineData(829)]
+    [InlineData(400)]
+    public void HeightScaling_RoundTrip_AcrossDpi(int height)
+    {
+        int there = SizeCalculator.ScaleHeight(height, 1392, 1704, 2.0 / 3, 1.0, 2.0);
+        int back = SizeCalculator.ScaleHeight(there, 1704, 1392, 2.0 / 3, 2.0, 1.0);
+        Assert.InRange(back, height - 1, height + 1);
+    }
+
     [Fact]
     public void Result_IsAlwaysInsideWorkArea()
     {

@@ -174,6 +174,12 @@ internal static class NativeMethods
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool EnumDisplayMonitors(IntPtr hdc, IntPtr lprcClip, MonitorEnumProc lpfnEnum, IntPtr dwData);
 
+    public const int MDT_EFFECTIVE_DPI = 0;
+
+    /// <summary>Effektive DPI eines Monitors (Windows 8.1+), 96 = 100 % Skalierung.</summary>
+    [DllImport("shcore.dll")]
+    public static extern int GetDpiForMonitor(IntPtr hmonitor, int dpiType, out uint dpiX, out uint dpiY);
+
     public const uint EDD_GET_DEVICE_INTERFACE_NAME = 0x00000001;
     public const int DISPLAY_DEVICE_ACTIVE = 0x00000001;
 
