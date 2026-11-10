@@ -17,14 +17,14 @@
            Version="$(ProductVersion)"
            UpgradeCode="8C0949E3-589A-4467-99B3-A86D395C438C"
            Scope="perUserOrMachine"
-           Language="1031"
-           Codepage="1252">
+           Language="!(loc.Language)"
+           Codepage="!(loc.Codepage)">
 
-    <SummaryInformation Description="LSM Display Resizer – passt Fenstergrößen beim Monitorwechsel automatisch an" />
+    <SummaryInformation Description="!(loc.PackageDescription)" />
 
     <!-- Gleiche Version ersetzt sich ebenfalls (z. B. neu gebautes MSI), statt doppelt installiert zu werden. -->
     <MajorUpgrade AllowSameVersionUpgrades="yes"
-                  DowngradeErrorMessage="Eine neuere Version von [ProductName] ist bereits installiert." />
+                  DowngradeErrorMessage="!(loc.DowngradeError)" />
     <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
 
     <!-- Scope="perUserOrMachine" setzt ALLUSERS=2 und MSIINSTALLPERUSER=1 (Standard: pro Benutzer).
@@ -59,7 +59,7 @@
 
     <ComponentGroup Id="StartMenu" Directory="ProgramMenuFolder">
       <Component Id="StartMenuShortcut">
-        <Shortcut Id="AppShortcut" Name="LSM Display Resizer" Description="Fenstergrößen beim Monitorwechsel anpassen"
+        <Shortcut Id="AppShortcut" Name="LSM Display Resizer" Description="!(loc.ShortcutDescription)"
                   Target="[INSTALLFOLDER]LSMDisplayResizer.exe" WorkingDirectory="INSTALLFOLDER" Icon="AppIcon" />
         <RegistryValue Root="HKMU" Key="Software\LSM Display Resizer" Name="StartMenuShortcut"
                        Type="integer" Value="1" KeyPath="yes" />
@@ -81,10 +81,10 @@
 
     <!-- Oberfläche: Lizenz bestätigen, installieren, am Ende optional starten -->
     <ui:WixUI Id="WixUI_Minimal" />
-    <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
+    <WixVariable Id="WixUILicenseRtf" Value="!(loc.LicenseFile)" />
     <WixVariable Id="WixUIDialogBmp" Value="Resources\Dialog.bmp" />
     <WixVariable Id="WixUIBannerBmp" Value="Resources\Banner.bmp" />
-    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="LSM Display Resizer jetzt starten" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="!(loc.LaunchApp)" />
     <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
     <Property Id="WixShellExecTarget" Value="[#AppExe]" />
     <CustomAction Id="LaunchApplication" BinaryRef="Wix4UtilCA_X64" DllEntry="WixShellExec" Impersonate="yes" />

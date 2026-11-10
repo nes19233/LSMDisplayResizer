@@ -3,6 +3,8 @@
 [![Build](https://github.com/nes19233/LSMDisplayResizer/actions/workflows/build.yml/badge.svg)](https://github.com/nes19233/LSMDisplayResizer/actions/workflows/build.yml)
 [![Lizenz: MIT](https://img.shields.io/badge/Lizenz-MIT-blue.svg)](LICENSE)
 
+**Deutsch** | [English](README.en.md)
+
 Kostenlose, quelloffene Windows-Tray-App, die die **Fenstergröße automatisch an den Zielmonitor anpasst**, sobald ein Fenster
 auf einen anderen Monitor verschoben wird.
 
@@ -50,7 +52,8 @@ Unter [Releases](../../releases) gibt es zwei Varianten. Voraussetzung jeweils W
 
 | Datei | Wofür |
 |---|---|
-| `LSMDisplayResizer-x.y.z-win-x64.msi` | **Empfohlen.** Installer mit Startmenü-Eintrag, Autostart, Eintrag unter „Apps“ und Updates |
+| `LSMDisplayResizer-x.y.z-win-x64-de.msi` | **Empfohlen.** Installer (deutsch) mit Startmenü-Eintrag, Autostart, Eintrag unter „Apps“ und Updates |
+| `LSMDisplayResizer-x.y.z-win-x64-en.msi` | Derselbe Installer auf Englisch |
 | `LSMDisplayResizer-x.y.z-win-x64.exe` | Portable Einzeldatei ohne Installation |
 
 ### MSI (empfohlen)
@@ -65,10 +68,10 @@ die App gleich zu starten.
 **Für alle Benutzer / IT-Verteilung** (mit Administratorrechten, z. B. per Intune, SCCM oder Skript):
 
 ```powershell
-msiexec /i LSMDisplayResizer-x.y.z-win-x64.msi ALLUSERS=1 /qn               # nach C:\Program Files, Autostart für alle
-msiexec /i LSMDisplayResizer-x.y.z-win-x64.msi ALLUSERS=1 AUTOSTART=0 /qn   # dasselbe ohne Autostart
-msiexec /i LSMDisplayResizer-x.y.z-win-x64.msi /qn                          # still, nur aktueller Benutzer
-msiexec /x LSMDisplayResizer-x.y.z-win-x64.msi /qn                          # deinstallieren
+msiexec /i LSMDisplayResizer-x.y.z-win-x64-de.msi ALLUSERS=1 /qn               # nach C:\Program Files, Autostart für alle
+msiexec /i LSMDisplayResizer-x.y.z-win-x64-de.msi ALLUSERS=1 AUTOSTART=0 /qn   # dasselbe ohne Autostart
+msiexec /i LSMDisplayResizer-x.y.z-win-x64-de.msi /qn                          # still, nur aktueller Benutzer
+msiexec /x LSMDisplayResizer-x.y.z-win-x64-de.msi /qn                          # deinstallieren
 ```
 
 Auch bei der Installation für alle Benutzer läuft die App selbst im Benutzerkontext (ohne Adminrechte).
@@ -105,7 +108,10 @@ Beim ersten Start einer heruntergeladenen Datei kann Windows SmartScreen warnen,
 
 **Einstellungen:**
 
-- *Allgemein*: Ein/Aus, Modus, Ablageposition beim Ziehen beibehalten, Tastenkürzel, Autostart, ausführliches Log
+Unten im Fenster: **OK** übernimmt und schließt, **Abbrechen** verwirft, **Übernehmen** übernimmt und lässt das Fenster
+offen. Die App selbst läuft dabei immer im Infobereich weiter.
+
+- *Allgemein*: Ein/Aus, Modus, Verhalten, Tastenkürzel, Monitortrennlinie, Autostart, ausführliches Log, **Sprache**
 - *Feste Regeln*: Regeln hinzufügen, bearbeiten, löschen. Mit **„Aktuelles Fenster übernehmen“** bringt man ein Fenster
   in die gewünschte Größe auf dem Zielmonitor, wählt es aus der Liste – Programm, Monitor und Größe werden als Regel übernommen.
   Passen mehrere Regeln, gewinnt die genaueste (bestimmtes Programm vor `*`, bestimmter Monitor vor „Alle Monitore“).
@@ -113,6 +119,9 @@ Beim ersten Start einer heruntergeladenen Datei kann Windows SmartScreen warnen,
 
 **Tastenkürzel (optional):** Passt das aktive Fenster sofort an – mit passender fester Regel auf die Regelgröße,
 sonst wird es nur vollständig in den Arbeitsbereich geholt. Standard: `Strg + Alt + R` (in den Einstellungen änderbar).
+
+**Sprache:** Die Oberfläche gibt es auf Deutsch und Englisch – *Allgemein → System → Sprache*: „Automatisch“ folgt der
+Windows-Anzeigesprache. Log-Einträge sind derzeit immer deutsch.
 
 **Ablageposition beim Ziehen:** Standardmäßig bleibt beim Ziehen mit der Maus die linke obere Ecke dort, wo das Fenster
 losgelassen wurde; nur die Größe ändert sich. Ohne diese Option wird – wie bei Win + Umschalt + Pfeil – auch die Position
@@ -134,7 +143,7 @@ Registerkarte **Hintergrundbild**: Ein großes Bild wird so auf alle Monitore ve
      *Ausrichtung* und *Versatz* = wie die Monitore auf dem Tisch zueinander stehen. Alle Werte lassen sich anpassen.
      Gedacht für nebeneinander stehende Monitore.
    - **Nach Pixeln**: Aufteilung wie in den Windows-Anzeigeeinstellungen angeordnet, für jede Anordnung.
-3. **Speichern und als Hintergrund setzen.** Die App erzeugt ein Gesamtbild und setzt es im Windows-Modus „Spannen“
+3. **Übernehmen und als Hintergrund setzen.** Die App erzeugt ein Gesamtbild und setzt es im Windows-Modus „Spannen“
    (nur für den angemeldeten Benutzer, ohne Adminrechte).
 
 Optional wird das Bild **automatisch neu erstellt**, wenn sich die Monitoranordnung ändert (z. B. Laptop an der

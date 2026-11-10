@@ -9,7 +9,8 @@
   <PropertyGroup>
     <OutputName>LSMDisplayResizer</OutputName>
     <InstallerPlatform>x64</InstallerPlatform>
-    <Cultures>de-DE</Cultures>
+    <!-- Zwei MSIs: Deutsch und Englisch (Texte in Strings.*.wxl, Lizenz in License.*.rtf) -->
+    <Cultures>de-DE;en-US</Cultures>
 
     <Version Condition="'$(Version)' == ''">0.1.0</Version>
     <!-- MSI-Versionen sind rein numerisch: "1.2.0-beta1" → "1.2.0" -->

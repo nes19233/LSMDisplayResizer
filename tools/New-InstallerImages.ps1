@@ -47,7 +47,7 @@ $font = [System.Drawing.Font]::new('Segoe UI Semibold', 13, [System.Drawing.Font
 $format = [System.Drawing.StringFormat]::new(); $format.Alignment = 'Center'
 $g.DrawString("LSM`nDisplay Resizer", $font, [System.Drawing.Brushes]::White, [System.Drawing.RectangleF]::new(0, 150, 164, 60), $format)
 $small = [System.Drawing.Font]::new('Segoe UI', 10, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
-$g.DrawString("kostenlos · MIT-Lizenz", $small, [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(210, 255, 255, 255)), [System.Drawing.RectangleF]::new(0, 280, 164, 20), $format)
+$g.DrawString("Open Source · MIT", $small, [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(210, 255, 255, 255)), [System.Drawing.RectangleF]::new(0, 280, 164, 20), $format)
 $g.Dispose()
 $bmp.Save((Join-Path $OutDir 'Dialog.bmp'), [System.Drawing.Imaging.ImageFormat]::Bmp)
 $bmp.Dispose()

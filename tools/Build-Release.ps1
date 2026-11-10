@@ -4,7 +4,7 @@
 
 .EXAMPLE
   pwsh tools/Build-Release.ps1 -Version 1.0.0
-  Ergebnis: artifacts/LSMDisplayResizer-1.0.0-win-x64.exe und .msi
+  Ergebnis: artifacts/LSMDisplayResizer-1.0.0-win-x64.exe sowie -de.msi und -en.msi
 #>
 param(
     [string]$Version = '0.1.0'
@@ -27,9 +27,12 @@ try {
     dotnet build installer/LSMDisplayResizer.Installer.wixproj -c Release "-p:Version=$Version" "-p:AppPublishDir=$publish\"
     if ($LASTEXITCODE -ne 0) { throw 'MSI-Build fehlgeschlagen' }
 
-    $msi = Get-ChildItem installer/bin -Recurse -Filter 'LSMDisplayResizer.msi' | Sort-Object LastWriteTime -Descending | Select-Object -First 1
     Copy-Item (Join-Path $publish 'LSMDisplayResizer.exe') (Join-Path $artifacts "LSMDisplayResizer-$Version-win-x64.exe") -Force
-    Copy-Item $msi.FullName (Join-Path $artifacts "LSMDisplayResizer-$Version-win-x64.msi") -Force
+    foreach ($c in @{ 'de-DE' = 'de'; 'en-US' = 'en' }.GetEnumerator()) {
+        $msi = Get-ChildItem installer/bin -Recurse -Filter 'LSMDisplayResizer.msi' | Where-Object { $_.Directory.Name -eq $c.Key } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        if (-not $msi) { throw "MSI für $($c.Key) fehlt" }
+        Copy-Item $msi.FullName (Join-Path $artifacts "LSMDisplayResizer-$Version-win-x64-$($c.Value).msi") -Force
+    }
 
     Get-ChildItem $artifacts -Filter "LSMDisplayResizer-$Version-*" | Select-Object Name, @{ n = 'MB'; e = { [math]::Round($_.Length / 1MB, 1) } }
 }

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WixLocalization Culture="en-US" xmlns="http://wixtoolset.org/schemas/v4/wxl">
+  <String Id="Language" Value="1033" />
+  <String Id="Codepage" Value="1252" />
+  <String Id="PackageDescription" Value="LSM Display Resizer – automatically adjusts window sizes when moving between monitors" />
+  <String Id="DowngradeError" Value="A newer version of [ProductName] is already installed." />
+  <String Id="ShortcutDescription" Value="Adjust window sizes when moving between monitors" />
+  <String Id="LaunchApp" Value="Launch LSM Display Resizer now" />
+  <String Id="LicenseFile" Value="License.en.rtf" />
+</WixLocalization>
