@@ -18,6 +18,12 @@ internal readonly record struct PhysicalSizeInfo(double WidthMm, double HeightMm
 /// </summary>
 internal sealed class WallpaperService : IDisposable
 {
+#if DEBUG
+    private static readonly bool IsDebugBuild = true;
+#else
+    private static readonly bool IsDebugBuild = false;
+#endif
+
     /// <summary>Schätzwert ohne EDID: 96 dpi.</summary>
     private const double EstimatedMmPerPixel = 25.4 / 96;
 
@@ -72,6 +78,12 @@ internal sealed class WallpaperService : IDisposable
         {
             var ws = _getSettings().Wallpaper;
             if (!ws.AutoUpdate || !ws.IsConfigured) return;
+            if (IsDebugBuild)
+            {
+                // Entwicklungs-/Test-Builds fassen den Hintergrund nie automatisch an (nur per Button).
+                Log.Info("Debug-Build: automatisches Erstellen des Hintergrundbilds übersprungen");
+                return;
+            }
             if (!File.Exists(ws.SourceImage))
             {
                 if (!_missingImageLogged) Log.Warn($"Hintergrundbild nicht gefunden: {ws.SourceImage}");
@@ -124,26 +136,42 @@ internal sealed class WallpaperService : IDisposable
                 return (file, result, image.Size);
             });
 
+            // Zustand vorher sichern: Klappt das Setzen nicht, wird genau dieser Hintergrund wiederhergestellt.
+            var previous = WallpaperSetter.CaptureCurrent();
             DateTime before = WallpaperSetter.GetTranscodedTimestamp();
-            WallpaperSetter.ApplySpanned(path);
-            WallpaperSetter.CleanupOldImages(keep: path);
-
-            // Windows legt jedes übernommene Hintergrundbild als "TranscodedWallpaper" ab – daran ist erkennbar,
-            // ob es wirklich angekommen ist (SystemParametersInfo meldet auch dann Erfolg, wenn nicht).
             bool applied = false;
-            for (int i = 0; i < 20 && !applied; i++)
+            try
             {
-                await Task.Delay(250);
-                applied = WallpaperSetter.GetTranscodedTimestamp() != before;
+                WallpaperSetter.ApplySpanned(path);
+
+                // Windows legt jedes übernommene Hintergrundbild als "TranscodedWallpaper" ab – daran ist erkennbar,
+                // ob es wirklich angekommen ist (SystemParametersInfo meldet auch dann Erfolg, wenn nicht).
+                for (int i = 0; i < 20 && !applied; i++)
+                {
+                    await Task.Delay(250);
+                    applied = WallpaperSetter.GetTranscodedTimestamp() != before;
+                }
             }
+            catch (Exception ex)
+            {
+                Log.Error("Hintergrundbild konnte nicht gesetzt werden", ex);
+            }
+
             if (!applied)
             {
-                const string notApplied = "Windows hat das Hintergrundbild nicht übernommen. Häufige Ursachen: eine Gruppenrichtlinie, " +
-                                          "oder die App wurde aus einer anderen (Store-)App heraus gestartet – dann bitte die App beenden " +
-                                          "und über das Startmenü neu starten.";
+                // Nie einen kaputten (schwarzen) Hintergrund zurücklassen: vorherigen Zustand wiederherstellen,
+                // neues Bild verwerfen, alte Bilder NICHT aufräumen.
+                WallpaperSetter.Revert(previous);
+                WallpaperSetter.TryDelete(path);
+                const string notApplied = "Windows hat das Hintergrundbild nicht übernommen – der bisherige Hintergrund bleibt. " +
+                                          "Häufige Ursachen: eine Gruppenrichtlinie, oder die App wurde aus einer anderen (Store-)App " +
+                                          "heraus gestartet – dann bitte die App beenden und über das Startmenü neu starten.";
                 Log.Warn($"{notApplied} Bild: {path}");
                 return notApplied;
             }
+
+            // Erst jetzt – nach bestätigtem Erfolg – ältere Bilder entfernen.
+            WallpaperSetter.CleanupOldImages(keep: path);
             WriteSignature(signature);
 
             var message = new StringBuilder();

@@ -220,6 +220,64 @@ internal static class WallpaperSetter
     private static bool IsTranscoded(string path) =>
         Path.GetFileName(path).StartsWith("TranscodedWallpaper", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>Aktuell eingestellter Hintergrund – um ihn bei einem fehlgeschlagenen Setzen wiederherzustellen.</summary>
+    internal readonly record struct WallpaperState(string Path, string Style, string Tile, int? BackgroundType);
+
+    public static WallpaperState CaptureCurrent()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(DesktopKey);
+            return new WallpaperState(
+                key?.GetValue("Wallpaper") as string ?? string.Empty,
+                key?.GetValue("WallpaperStyle") as string ?? "10",
+                key?.GetValue("TileWallpaper") as string ?? "0",
+                ReadBackgroundType());
+        }
+        catch
+        {
+            return new WallpaperState(string.Empty, "10", "0", null);
+        }
+    }
+
+    /// <summary>Stellt einen zuvor gesicherten Hintergrund wieder her (nur, wenn dessen Bilddatei noch existiert).</summary>
+    public static void Revert(WallpaperState state)
+    {
+        try
+        {
+            bool hasImage = state.Path.Length > 0 && File.Exists(state.Path);
+            bool solidColor = state.BackgroundType == 1 || !hasImage;
+            var position = ToPosition(state.Style, state.Tile);
+
+            if (!TryViaCom(dw =>
+                {
+                    Step("SetPosition", () => dw.SetPosition(position));
+                    if (hasImage) Step("SetWallpaper", () => SetForAllMonitors(dw, state.Path));
+                    Step("Enable", () => dw.Enable(!solidColor));
+                }, out _))
+            {
+                SetViaLegacyApi(hasImage && !solidColor ? state.Path : string.Empty, state.Style, state.Tile);
+            }
+            Log.Info($"Bisheriger Hintergrund wiederhergestellt: {(solidColor ? "Volltonfarbe" : state.Path)}");
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Bisheriger Hintergrund konnte nicht wiederhergestellt werden", ex);
+        }
+    }
+
+    public static void TryDelete(string path)
+    {
+        try
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+        catch
+        {
+            // egal
+        }
+    }
+
     /// <summary>Zeitstempel von Windows' Kopie des aktuellen Hintergrundbilds (ändert sich bei jeder Übernahme).</summary>
     public static DateTime GetTranscodedTimestamp()
     {
@@ -240,9 +298,13 @@ internal static class WallpaperSetter
     {
         try
         {
+            // Nie die Datei löschen, die Windows gerade als Hintergrund eingetragen hat.
+            string current = CaptureCurrent().Path;
             foreach (var file in Directory.EnumerateFiles(OutputDirectory, "gespannt-*.png"))
             {
-                if (!string.Equals(file, keep, StringComparison.OrdinalIgnoreCase)) File.Delete(file);
+                if (string.Equals(file, keep, StringComparison.OrdinalIgnoreCase)) continue;
+                if (string.Equals(file, current, StringComparison.OrdinalIgnoreCase)) continue;
+                File.Delete(file);
             }
         }
         catch (Exception ex)
