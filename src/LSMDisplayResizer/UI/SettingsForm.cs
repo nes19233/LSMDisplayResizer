@@ -20,6 +20,11 @@ internal sealed class SettingsForm : Form
     private readonly CheckBox _chkKeepDrop;
     private readonly CheckBox _chkFullHeight;
     private readonly CheckBox _chkRestoreLayout;
+    private readonly CheckBox _chkSeparator;
+    private readonly Button _btnSeparatorColor;
+    private readonly NumericUpDown _numSeparatorThickness;
+    private readonly NumericUpDown _numSeparatorOpacity;
+    private Color _separatorColor;
     private readonly CheckBox _chkAfterDisplayChange;
     private readonly NumericUpDown _numDisplayDelay;
     private readonly CheckBox _chkHotkey;
@@ -141,6 +146,28 @@ internal sealed class SettingsForm : Form
         Ui.AddRow(general, Ui.Text("In das Feld klicken und die Tastenkombination drücken (z. B. Strg + Alt + R). " +
                                    "Wendet eine passende feste Regel an, sonst wird das Fenster in den Arbeitsbereich eingepasst.",
             hint: true, indent: 20));
+
+        Ui.AddRow(general, Ui.Heading("Monitortrennlinie"));
+        _chkSeparator = Ui.Check("Feine Linie zwischen den Monitoren anzeigen");
+        Ui.AddRow(general, _chkSeparator);
+        var sepRow = new FlowLayoutPanel { AutoSize = true, WrapContents = true, Margin = new Padding(20, 0, 0, 0) };
+        sepRow.Controls.Add(new Label { Text = "Farbe:", AutoSize = true, Margin = new Padding(3, 7, 3, 3) });
+        _btnSeparatorColor = new Button { Width = 60, Height = 24, FlatStyle = FlatStyle.Flat, Margin = new Padding(3, 3, 12, 3) };
+        _btnSeparatorColor.Click += (_, _) => PickSeparatorColor();
+        sepRow.Controls.Add(_btnSeparatorColor);
+        sepRow.Controls.Add(new Label { Text = "Stärke:", AutoSize = true, Margin = new Padding(3, 7, 3, 3) });
+        _numSeparatorThickness = new NumericUpDown { Width = 50, Minimum = 1, Maximum = 4, TextAlign = HorizontalAlignment.Right, Margin = new Padding(3) };
+        sepRow.Controls.Add(_numSeparatorThickness);
+        sepRow.Controls.Add(new Label { Text = "px", AutoSize = true, Margin = new Padding(3, 7, 12, 3) });
+        sepRow.Controls.Add(new Label { Text = "Deckkraft:", AutoSize = true, Margin = new Padding(3, 7, 3, 3) });
+        _numSeparatorOpacity = new NumericUpDown { Width = 55, Minimum = 10, Maximum = 100, Increment = 10, TextAlign = HorizontalAlignment.Right, Margin = new Padding(3) };
+        sepRow.Controls.Add(_numSeparatorOpacity);
+        sepRow.Controls.Add(new Label { Text = "%", AutoSize = true, Margin = new Padding(3, 7, 3, 3) });
+        Ui.AddRow(general, sepRow);
+        Ui.AddRow(general, Ui.Text("Zeigt bei mehreren Monitoren eine dünne Linie an der Grenze, damit man sieht, wo ein Bildschirm endet – " +
+                                   "hilfreich z. B. bei einem geteilten Ultrawide-Monitor. Die Linie lässt Mausklicks durch und wird bei " +
+                                   "Vollbildprogrammen ausgeblendet.", hint: true, indent: 20));
+        _chkSeparator.CheckedChanged += (_, _) => sepRow.Enabled = _chkSeparator.Checked;
 
         Ui.AddRow(general, Ui.Heading("System"));
         _chkAutostart = Ui.Check("Mit Windows starten");
@@ -319,6 +346,12 @@ internal sealed class SettingsForm : Form
         _chkKeepDrop.Checked = _settings.KeepDropPositionOnDrag;
         _chkFullHeight.Checked = _settings.TreatFullHeightAsSnapped;
         _chkRestoreLayout.Checked = _settings.RestoreLayoutPerConfiguration;
+        _chkSeparator.Checked = _settings.Separator.Enabled;
+        _numSeparatorThickness.Parent!.Enabled = _settings.Separator.Enabled;
+        _separatorColor = _settings.Separator.GetColor();
+        _btnSeparatorColor.BackColor = _separatorColor;
+        _numSeparatorThickness.Value = _settings.Separator.Thickness;
+        _numSeparatorOpacity.Value = _settings.Separator.OpacityPercent;
         _chkAfterDisplayChange.Checked = _settings.AdjustAfterDisplayChange;
         _numDisplayDelay.Value = Math.Clamp(_settings.DisplayChangeDelaySeconds, 2, 60);
         _numDisplayDelay.Enabled = _chkAfterDisplayChange.Checked;
@@ -387,6 +420,14 @@ internal sealed class SettingsForm : Form
     }
 
     private void ShowHotkey() => _txtHotkey.Text = HotkeyManager.IsValid(_hotkey) ? HotkeyManager.Format(_hotkey) : "(keins)";
+
+    private void PickSeparatorColor()
+    {
+        using var dlg = new ColorDialog { Color = _separatorColor, FullOpen = true, AnyColor = true };
+        if (dlg.ShowDialog(this) != DialogResult.OK) return;
+        _separatorColor = dlg.Color;
+        _btnSeparatorColor.BackColor = _separatorColor;
+    }
 
     // ---------------- Regeln ----------------
 
@@ -554,6 +595,10 @@ internal sealed class SettingsForm : Form
         _settings.KeepDropPositionOnDrag = _chkKeepDrop.Checked;
         _settings.TreatFullHeightAsSnapped = _chkFullHeight.Checked;
         _settings.RestoreLayoutPerConfiguration = _chkRestoreLayout.Checked;
+        _settings.Separator.Enabled = _chkSeparator.Checked;
+        _settings.Separator.Color = SeparatorSettings.ToHex(_separatorColor);
+        _settings.Separator.Thickness = (int)_numSeparatorThickness.Value;
+        _settings.Separator.OpacityPercent = (int)_numSeparatorOpacity.Value;
         _settings.AdjustAfterDisplayChange = _chkAfterDisplayChange.Checked;
         _settings.DisplayChangeDelaySeconds = (int)_numDisplayDelay.Value;
         _settings.HotkeyEnabled = _chkHotkey.Checked;

@@ -4,6 +4,7 @@ using LSMDisplayResizer.Settings;
 using LSMDisplayResizer.Tracking;
 using LSMDisplayResizer.UI;
 using LSMDisplayResizer.Wallpaper;
+using LSMDisplayResizer.Overlay;
 using static LSMDisplayResizer.Interop.NativeMethods;
 
 namespace LSMDisplayResizer;
@@ -24,6 +25,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly SynchronizationContext _uiContext;
     private readonly HotkeyManager _hotkey;
     private readonly WallpaperService _wallpaper;
+    private readonly MonitorSeparatorOverlay _separator;
 
     private AppSettings _settings;
     private SettingsForm? _settingsForm;
@@ -68,6 +70,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         _wallpaper = new WallpaperService(_monitors, () => _settings);
         _wallpaper.Start();
+
+        _separator = new MonitorSeparatorOverlay(_monitors, () => _settings);
+        _separator.Start();
 
 #if DEBUG
         // Nur Debug-Build: Anzeigeänderung von außen simulieren (Tests ohne echtes An-/Abdocken).
@@ -168,6 +173,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         Log.VerboseEnabled = settings.VerboseLog;
         _tracker.UpdateSettings(settings);
         _wallpaper.NotifySettingsChanged();
+        _separator.ApplySettings();
         UpdateTrayState();
         string? hotkeyError = ApplyHotkey();
 
@@ -203,6 +209,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _hotkey.Dispose();
         _tracker.Dispose();
         _wallpaper.Dispose();
+        _separator.Dispose();
         _tray.Visible = false;
         _tray.Dispose();
         _menu.Dispose();

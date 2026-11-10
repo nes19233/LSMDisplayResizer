@@ -172,6 +172,10 @@ Tastatur/Programm, bevor geprüft wird.
   Änderung an – Position und Größenverhältnis stimmen dann wieder, meist nach 2–3 Sekunden. Ruhen alle Fenster, prüft
   ein letzter Durchgang auch Fenster ohne eigene Bewegung (z. B. nur andere Auflösung). Spätestens nach der Höchstdauer
   (Standard 8 Sekunden, einstellbar) ist Schluss. Abschaltbar unter Allgemein → Verhalten.
+- **Monitortrennlinie** (optional, standardmäßig aus): eine sehr dünne Linie an der Grenze zwischen zwei Monitoren,
+  damit man sieht, wo ein Bildschirm endet – z. B. bei einem geteilten Ultrawide-Monitor. Farbe, Stärke (1–4 px, Standard
+  1 px) und Deckkraft (Standard 60 %) sind einstellbar. Die Linie lässt Mausklicks durch, erscheint nicht in Taskleiste
+  oder Alt+Tab und wird ausgeblendet, solange ein Vollbildprogramm aktiv ist.
 - **Anordnung pro Monitorkonstellation:** Die App merkt sich für jede Kombination angeschlossener Monitore (erkannt an
   den Geräte-IDs), auf welchem Monitor jedes Fenster lag. Wechselt man z. B. vom Laptop allein wieder auf Laptop + zwei
   Monitore, kommt jedes Fenster auf seinen Monitor zurück – normale Fenster exakt mit Position und Größe, **maximierte**
@@ -208,6 +212,7 @@ src/LSMDisplayResizer/
   Resizing/                   Größenberechnung, Regelauswahl, SetWindowPos
   Monitors/                   Monitorerkennung (EnumDisplayDevices, QueryDisplayConfig)
   Settings/                   Einstellungen (JSON), Autostart
+  Overlay/                    Monitortrennlinie
   Wallpaper/                  Hintergrundbild über mehrere Monitore (EDID, Aufteilung, Setzen)
   UI/                         Einstellungen, Regel-Dialog, Fensterauswahl, Log-Fenster
   Interop/                    P/Invoke-Deklarationen

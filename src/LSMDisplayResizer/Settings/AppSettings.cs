@@ -64,12 +64,16 @@ internal sealed class AppSettings
     /// <summary>Monitorübergreifendes Hintergrundbild.</summary>
     public WallpaperSettings Wallpaper { get; set; } = new();
 
+    /// <summary>Feine Trennlinie zwischen den Monitoren.</summary>
+    public SeparatorSettings Separator { get; set; } = new();
+
     public AppSettings Clone()
     {
         var copy = (AppSettings)MemberwiseClone();
         copy.Rules = Rules.Select(r => r.Clone()).ToList();
         copy.ExcludedProcesses = [.. ExcludedProcesses];
         copy.Wallpaper = Wallpaper.Clone();
+        copy.Separator = Separator.Clone();
         return copy;
     }
 
@@ -91,6 +95,8 @@ internal sealed class AppSettings
         if (!Enum.IsDefined(Mode)) Mode = ResizeMode.Percent;
         Wallpaper ??= new WallpaperSettings();
         Wallpaper.Normalize();
+        Separator ??= new SeparatorSettings();
+        Separator.Normalize();
     }
 
     /// <summary>"Game" → "game.exe", "C:\x\Game.EXE" → "game.exe", "*" bleibt "*".</summary>
