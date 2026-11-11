@@ -69,7 +69,7 @@ internal sealed class WindowTracker : IDisposable
         public void Record(MonitorDescriptor monitor, Rectangle? frame)
         {
             if (frame is not { } f) return;
-            MonitorId = monitor.DeviceId;
+            MonitorId = monitor.Key;
             MonitorName = monitor.DisplayName;
             Frame = f;
             WorkArea = monitor.WorkArea;
@@ -332,7 +332,7 @@ internal sealed class WindowTracker : IDisposable
 
         // Vergleich mit dem Monitor des letzten normalen Zustands (siehe TrackedWindow).
         bool monitorChanged = tw.HasNormalFrame &&
-                              !string.Equals(tw.MonitorId, monitor.DeviceId, StringComparison.OrdinalIgnoreCase);
+                              !string.Equals(tw.MonitorId, monitor.Key, StringComparison.OrdinalIgnoreCase);
         if (!monitorChanged || trigger is Trigger.Snapshot or Trigger.Shown or Trigger.Foreground)
         {
             tw.Record(monitor, snap.FrameRect);
@@ -548,6 +548,12 @@ internal sealed class WindowTracker : IDisposable
         _movedDuringChange.Clear();
         _pending.Clear();
         _monitors.Invalidate();
+
+        // Zur Nachvollziehbarkeit: welche Konstellation erkannt wurde und für wie viele Fenster eine Anordnung bekannt ist.
+        string configKey = CurrentConfigKey();
+        int known = _windows.Values.Count(t => t.Layouts.ContainsKey(configKey));
+        Log.Info($"Monitorkonstellation: {string.Join(", ", _monitors.GetAll().Select(m => $"{m.FriendlyName} [{m.Key}]"))}" +
+                 $" – gemerkte Anordnung für {known} Fenster");
         foreach (var hwnd in WindowInspector.EnumerateTopLevelWindows())
         {
             if (AdjustAfterDisplayChange(hwnd, adjust)) _adjustedThisChange++;
@@ -606,7 +612,7 @@ internal sealed class WindowTracker : IDisposable
                 return false;
             }
 
-            bool otherMonitor = !string.Equals(tw.MonitorId, monitor.DeviceId, StringComparison.OrdinalIgnoreCase);
+            bool otherMonitor = !string.Equals(tw.MonitorId, monitor.Key, StringComparison.OrdinalIgnoreCase);
             bool otherWorkArea = tw.WorkArea != monitor.WorkArea;
             if (!otherMonitor && !otherWorkArea)
             {
@@ -643,9 +649,9 @@ internal sealed class WindowTracker : IDisposable
         if (!tw.Layouts.TryGetValue(CurrentConfigKey(), out var entry)) return false;
         if (entry.Maximized != isMaximized) return false; // Zustand hat sich geändert → normale Logik
 
-        var target = _monitors.GetAll().FirstOrDefault(m => string.Equals(m.DeviceId, entry.MonitorId, StringComparison.OrdinalIgnoreCase));
+        var target = _monitors.GetAll().FirstOrDefault(m => string.Equals(m.Key, entry.MonitorId, StringComparison.OrdinalIgnoreCase));
         if (target == null) return false;
-        bool sameMonitor = string.Equals(current.DeviceId, target.DeviceId, StringComparison.OrdinalIgnoreCase);
+        bool sameMonitor = string.Equals(current.Key, target.Key, StringComparison.OrdinalIgnoreCase);
 
         if (isMaximized)
         {
@@ -690,7 +696,7 @@ internal sealed class WindowTracker : IDisposable
 
     /// <summary>Schlüssel der aktuellen Monitorkonstellation: Geräte-IDs aller angeschlossenen Monitore.</summary>
     private string CurrentConfigKey() =>
-        string.Join("|", _monitors.GetAll().Select(m => m.DeviceId).OrderBy(id => id, StringComparer.OrdinalIgnoreCase));
+        string.Join("|", _monitors.GetAll().Select(m => m.Key).OrderBy(id => id, StringComparer.OrdinalIgnoreCase));
 
     /// <summary>Merkt sich die Anordnung des Fensters für die aktuelle Monitorkonstellation (nicht während einer Anzeigeänderung).</summary>
     private void RememberLayout(TrackedWindow tw, MonitorDescriptor monitor, Rectangle frame, bool maximized)
@@ -698,8 +704,8 @@ internal sealed class WindowTracker : IDisposable
         if (!_settings.RestoreLayoutPerConfiguration || _relayoutPending) return;
         string key = CurrentConfigKey();
         // Nur merken, wenn der Monitor zur ermittelten Konstellation gehört (Schutz vor Momentaufnahmen mitten im Umbau).
-        if (!key.Split('|').Contains(monitor.DeviceId, StringComparer.OrdinalIgnoreCase)) return;
-        tw.Layouts[key] = new LayoutEntry(monitor.DeviceId, monitor.DisplayName, frame, monitor.WorkArea, maximized);
+        if (!key.Split('|').Contains(monitor.Key, StringComparer.OrdinalIgnoreCase)) return;
+        tw.Layouts[key] = new LayoutEntry(monitor.Key, monitor.DisplayName, frame, monitor.WorkArea, maximized);
     }
 
     private void RemoveDeadWindows()

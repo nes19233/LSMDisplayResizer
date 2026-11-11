@@ -11,7 +11,7 @@ namespace LSMDisplayResizer.Monitors;
 /// </summary>
 internal sealed class MonitorManager
 {
-    private readonly record struct Identity(string DeviceId, string ModelKey, string FriendlyName);
+    private readonly record struct Identity(string DeviceId, string ModelKey, string FriendlyName, string StableKey = "");
 
     private readonly object _sync = new();
     private Dictionary<string, Identity> _identities = new(StringComparer.OrdinalIgnoreCase);
@@ -46,7 +46,8 @@ internal sealed class MonitorManager
             mi.rcMonitor.ToRectangle(),
             mi.rcWork.ToRectangle(),
             (mi.dwFlags & MONITORINFOF_PRIMARY) != 0,
-            ReadScale(hmon));
+            ReadScale(hmon),
+            string.IsNullOrEmpty(id.StableKey) ? id.DeviceId : id.StableKey);
     }
 
     private static double ReadScale(IntPtr hmon)
@@ -85,12 +86,60 @@ internal sealed class MonitorManager
             if (_identities.TryGetValue(gdiDeviceName, out var cached)) return cached;
         }
 
+        // Alle Monitore auf einmal einlesen: Die stabile Kennung hängt von den anderen Monitoren ab
+        // (zwei Hälften desselben Monitors werden nach links/rechts unterschieden).
+        var all = ReadAllIdentities();
+        lock (_sync)
+        {
+            foreach (var (name, id) in all) _identities[name] = id;
+            if (_identities.TryGetValue(gdiDeviceName, out var found)) return found;
+        }
+
         Identity identity = ReadIdentity(gdiDeviceName);
         lock (_sync)
         {
             _identities[gdiDeviceName] = identity;
         }
         return identity;
+    }
+
+    private static Dictionary<string, Identity> ReadAllIdentities()
+    {
+        var monitors = new List<(string Gdi, int Left, int Top, Identity Id, string? Serial)>();
+        EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, (IntPtr h, IntPtr _, ref RECT _, IntPtr _) =>
+        {
+            var mi = new MONITORINFOEX { cbSize = Marshal.SizeOf<MONITORINFOEX>(), szDevice = string.Empty };
+            if (GetMonitorInfo(h, ref mi))
+            {
+                var id = ReadIdentity(mi.szDevice);
+                monitors.Add((mi.szDevice, mi.rcMonitor.Left, mi.rcMonitor.Top, id, Wallpaper.EdidReader.ReadDeviceSerial(id.DeviceId)));
+            }
+            return true;
+        }, IntPtr.Zero);
+
+        var keys = ComputeStableKeys(monitors.Select(m => (m.Gdi, m.Left, m.Top, m.Serial, m.Id.ModelKey, m.Id.DeviceId)).ToList());
+        return monitors.ToDictionary(m => m.Gdi, m => m.Id with { StableKey = keys[m.Gdi] }, StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Stabile Kennung je Monitor für die Wiedererkennung über An-/Abdocken hinweg. Windows vergibt Geräte-IDs je nach
+    /// Anschluss, Dock und Modus neu (ein Dell U3425WE meldete sich mit 13 verschiedenen IDs) – die EDID-Seriennummer
+    /// bleibt gleich. Bildflächen mit derselben Seriennummer (Bild-neben-Bild) werden von links nach rechts nummeriert.
+    /// Ohne Seriennummer: Modell, sonst Geräte-ID.
+    /// </summary>
+    public static Dictionary<string, string> ComputeStableKeys(
+        IReadOnlyList<(string Gdi, int Left, int Top, string? Serial, string ModelKey, string DeviceId)> monitors)
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var group in monitors.GroupBy(m => !string.IsNullOrEmpty(m.Serial) ? "S:" + m.Serial
+                                                     : !string.IsNullOrEmpty(m.ModelKey) ? "M:" + m.ModelKey
+                                                     : "D:" + m.DeviceId, StringComparer.OrdinalIgnoreCase))
+        {
+            var ordered = group.OrderBy(m => m.Left).ThenBy(m => m.Top).ToList();
+            for (int i = 0; i < ordered.Count; i++)
+                result[ordered[i].Gdi] = ordered.Count == 1 ? group.Key : $"{group.Key}#{i + 1}";
+        }
+        return result;
     }
 
     private static Identity ReadIdentity(string gdiDeviceName)

@@ -11,6 +11,7 @@ namespace LSMDisplayResizer.Monitors;
 /// <param name="Bounds">Gesamter Monitorbereich (rcMonitor).</param>
 /// <param name="WorkArea">Arbeitsbereich ohne Taskleiste (rcWork).</param>
 /// <param name="Scale">Anzeigeskalierung (1,0 = 100 %, 2,0 = 200 %).</param>
+/// <param name="StableKey">Kennung, die über An-/Abdocken hinweg gleich bleibt (EDID-Seriennummer, siehe MonitorManager).</param>
 internal sealed record MonitorDescriptor(
     IntPtr Handle,
     string DeviceName,
@@ -20,8 +21,12 @@ internal sealed record MonitorDescriptor(
     Rectangle Bounds,
     Rectangle WorkArea,
     bool IsPrimary,
-    double Scale = 1.0)
+    double Scale = 1.0,
+    string StableKey = "")
 {
+    /// <summary>Stabile Kennung, ersatzweise die Geräte-ID.</summary>
+    public string Key => string.IsNullOrEmpty(StableKey) ? DeviceId : StableKey;
+
     public string ShortDeviceName => DeviceName.Replace(@"\\.\", string.Empty);
 
     public string DisplayName =>

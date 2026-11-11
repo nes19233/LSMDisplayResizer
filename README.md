@@ -186,7 +186,7 @@ Tastatur/Programm, bevor geprüft wird.
   1 px) und Deckkraft (Standard 60 %) sind einstellbar. Die Linie lässt Mausklicks durch, erscheint nicht in Taskleiste
   oder Alt+Tab und wird ausgeblendet, solange ein Vollbildprogramm aktiv ist.
 - **Anordnung pro Monitorkonstellation:** Die App merkt sich für jede Kombination angeschlossener Monitore (erkannt an
-  den Geräte-IDs), auf welchem Monitor jedes Fenster lag. Wechselt man z. B. vom Laptop allein wieder auf Laptop + zwei
+  der EDID-Seriennummer, weil Windows Geräte-IDs beim Andocken oft neu vergibt), auf welchem Monitor jedes Fenster lag. Wechselt man z. B. vom Laptop allein wieder auf Laptop + zwei
   Monitore, kommt jedes Fenster auf seinen Monitor zurück – normale Fenster exakt mit Position und Größe, **maximierte**
   Fenster bleiben maximiert und wechseln nur den Monitor. In einer noch unbekannten Konstellation greift das prozentuale
   Umrechnen (nur für normale Fenster). Das Gedächtnis gilt für Fenster, die zwischendurch geöffnet bleiben, und geht beim
