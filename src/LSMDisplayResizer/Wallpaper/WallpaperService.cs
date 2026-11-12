@@ -93,7 +93,11 @@ internal sealed class WallpaperService : IDisposable
             }
             _missingImageLogged = false;
 
-            var inputs = BuildInputs(_monitors.GetAll(), ws);
+            var monitors = _monitors.GetAll();
+            // Ersatzanzeige ohne Monitor (z. B. abgesteckt bei zugeklapptem Notebook): niemand sieht das Bild.
+            if (MonitorDescriptor.OnlyPlaceholders(monitors)) return;
+
+            var inputs = BuildInputs(monitors, ws);
             string signature = BuildSignature(inputs, ws);
             if (signature == ReadSignature()) return;
 

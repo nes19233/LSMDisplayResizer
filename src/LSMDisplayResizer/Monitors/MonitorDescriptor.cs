@@ -12,6 +12,10 @@ namespace LSMDisplayResizer.Monitors;
 /// <param name="WorkArea">Arbeitsbereich ohne Taskleiste (rcWork).</param>
 /// <param name="Scale">Anzeigeskalierung (1,0 = 100 %, 2,0 = 200 %).</param>
 /// <param name="StableKey">Kennung, die über An-/Abdocken hinweg gleich bleibt (EDID-Seriennummer, siehe MonitorManager).</param>
+/// <param name="IsPlaceholder">
+/// Ersatzanzeige ohne angeschlossenen Monitor: Windows hält beim Abstecken mit zugeklapptem Notebook kurz einen
+/// Ausgang mit 1024×768 aktiv, an dem kein Monitorgerät hängt.
+/// </param>
 internal sealed record MonitorDescriptor(
     IntPtr Handle,
     string DeviceName,
@@ -22,8 +26,13 @@ internal sealed record MonitorDescriptor(
     Rectangle WorkArea,
     bool IsPrimary,
     double Scale = 1.0,
-    string StableKey = "")
+    string StableKey = "",
+    bool IsPlaceholder = false)
 {
+    /// <summary>Nur Ersatzanzeigen aktiv (siehe <see cref="IsPlaceholder"/>) – kein echter Monitor angeschlossen.</summary>
+    public static bool OnlyPlaceholders(IReadOnlyCollection<MonitorDescriptor> monitors) =>
+        monitors.Count > 0 && monitors.All(m => m.IsPlaceholder);
+
     /// <summary>Stabile Kennung, ersatzweise die Geräte-ID.</summary>
     public string Key => string.IsNullOrEmpty(StableKey) ? DeviceId : StableKey;
 

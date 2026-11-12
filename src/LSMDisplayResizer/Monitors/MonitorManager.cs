@@ -11,7 +11,7 @@ namespace LSMDisplayResizer.Monitors;
 /// </summary>
 internal sealed class MonitorManager
 {
-    private readonly record struct Identity(string DeviceId, string ModelKey, string FriendlyName, string StableKey = "");
+    private readonly record struct Identity(string DeviceId, string ModelKey, string FriendlyName, bool IsPlaceholder, string StableKey = "");
 
     private readonly object _sync = new();
     private Dictionary<string, Identity> _identities = new(StringComparer.OrdinalIgnoreCase);
@@ -47,7 +47,8 @@ internal sealed class MonitorManager
             mi.rcWork.ToRectangle(),
             (mi.dwFlags & MONITORINFOF_PRIMARY) != 0,
             ReadScale(hmon),
-            string.IsNullOrEmpty(id.StableKey) ? id.DeviceId : id.StableKey);
+            string.IsNullOrEmpty(id.StableKey) ? id.DeviceId : id.StableKey,
+            id.IsPlaceholder);
     }
 
     private static double ReadScale(IntPtr hmon)
@@ -173,13 +174,15 @@ internal sealed class MonitorManager
 
         var (friendly, devicePath) = ReadDisplayConfigName(gdiDeviceName);
         if (deviceId.Length == 0) deviceId = devicePath;
-        if (deviceId.Length == 0) deviceId = gdiDeviceName; // letzte Rückfallebene
+        // Weder Monitorgerät noch Anzeigepfad: Ersatzanzeige (z. B. 1024×768 nach dem Abstecken bei zugeklapptem Notebook).
+        bool placeholder = deviceId.Length == 0;
+        if (placeholder) deviceId = gdiDeviceName; // letzte Rückfallebene
 
         string name = !string.IsNullOrWhiteSpace(friendly) ? friendly
             : !string.IsNullOrWhiteSpace(deviceString) ? deviceString
             : "Monitor";
 
-        return new Identity(deviceId, MonitorDescriptor.ExtractModelKey(deviceId), name);
+        return new Identity(deviceId, MonitorDescriptor.ExtractModelKey(deviceId), name, placeholder);
     }
 
     /// <summary>Liest über QueryDisplayConfig den Anzeigenamen des Monitors (z. B. "DELL U2720Q").</summary>

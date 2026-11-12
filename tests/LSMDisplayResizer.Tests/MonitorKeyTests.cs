@@ -4,6 +4,20 @@ namespace LSMDisplayResizer.Tests;
 
 public class MonitorKeyTests
 {
+    private static MonitorDescriptor Monitor(bool placeholder) =>
+        new(IntPtr.Zero, @"\\.\DISPLAY1", @"\\.\DISPLAY1", "", "DELL U3824DW",
+            new System.Drawing.Rectangle(0, 0, 1024, 768), new System.Drawing.Rectangle(0, 0, 1024, 728), true,
+            IsPlaceholder: placeholder);
+
+    [Fact]
+    public void OnlyPlaceholders_OnlyWhenNoRealMonitor()
+    {
+        Assert.True(MonitorDescriptor.OnlyPlaceholders([Monitor(true)]));
+        Assert.False(MonitorDescriptor.OnlyPlaceholders([Monitor(true), Monitor(false)]));
+        Assert.False(MonitorDescriptor.OnlyPlaceholders([Monitor(false)]));
+        Assert.False(MonitorDescriptor.OnlyPlaceholders([]));
+    }
+
     [Fact]
     public void SameMonitor_DifferentDeviceIds_GetSameKey()
     {

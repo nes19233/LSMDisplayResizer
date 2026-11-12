@@ -55,6 +55,12 @@ internal sealed class WindowTracker : IDisposable
         /// <summary>false, solange das Fenster nie im normalen Zustand gesehen wurde.</summary>
         public bool HasNormalFrame;
 
+        /// <summary>
+        /// Zuletzt im normalen Zustand gesehen (nicht maximiert, angeordnet oder in voller Höhe). Während einer
+        /// Anzeigeänderung eingefroren: Hat erst Windows das Fenster auf volle Höhe gestaucht, wird es trotzdem angepasst.
+        /// </summary>
+        public bool WasNormal;
+
         public DateTime FirstSeen;
         public DateTime SuppressUntil;
         public bool InMoveSize;
@@ -68,6 +74,7 @@ internal sealed class WindowTracker : IDisposable
         /// </summary>
         public void Record(MonitorDescriptor monitor, Rectangle? frame)
         {
+            WasNormal = frame != null;
             if (frame is not { } f) return;
             MonitorId = monitor.Key;
             MonitorName = monitor.DisplayName;
@@ -124,7 +131,16 @@ internal sealed class WindowTracker : IDisposable
     private DateTime _lastLocationEvent = DateTime.MinValue;
     /// <summary>Während einer Anzeigeänderung bewegte Fenster und Zeitpunkt ihrer letzten Bewegung.</summary>
     private readonly Dictionary<IntPtr, DateTime> _movedDuringChange = [];
+    /// <summary>
+    /// Nur eine Ersatzanzeige aktiv (z. B. 1024×768 nach dem Abstecken bei zugeklapptem Notebook). Windows quetscht die
+    /// Fenster hinein – diese Größen dürfen nicht zur Ausgangsbasis werden. Die Zustände von vorher bleiben eingefroren,
+    /// bis wieder ein echter Monitor da ist; dann wird von dort aus umgerechnet.
+    /// </summary>
+    private bool _onPlaceholder;
     private bool _disposed;
+
+    /// <summary>Zustände eingefroren: Anzeigeänderung läuft oder nur Ersatzanzeige aktiv.</summary>
+    private bool Frozen => _relayoutPending || _onPlaceholder;
 
     public WindowTracker(MonitorManager monitors, AppSettings settings)
     {
@@ -327,8 +343,8 @@ internal sealed class WindowTracker : IDisposable
         }
 
         // Während einer Anzeigeänderung räumt Windows die Fenster um. Den Zustand von vorher behalten –
-        // RelayoutAfterDisplayChange passt anschließend alle Fenster in einem Durchgang an.
-        if (_relayoutPending) return;
+        // SettleAfterDisplayChange passt anschließend alle Fenster an. Ebenso, solange nur eine Ersatzanzeige aktiv ist.
+        if (Frozen) return;
 
         // Vergleich mit dem Monitor des letzten normalen Zustands (siehe TrackedWindow).
         bool monitorChanged = tw.HasNormalFrame &&
@@ -491,7 +507,9 @@ internal sealed class WindowTracker : IDisposable
             if (monitor != null)
             {
                 var tw = GetOrAdd(hwnd, trigger == Trigger.Snapshot ? DateTime.MinValue : DateTime.UtcNow);
-                tw.Record(monitor, frame: null);
+                // Eingefroren (Anzeigeänderung/Ersatzanzeige): Zustand von vorher behalten – Windows staucht beim
+                // Umräumen Fenster auf volle Höhe, das ist kein Andocken durch den Benutzer.
+                if (!Frozen) tw.Record(monitor, frame: null);
                 // Maximierte Fenster: Monitor je Konstellation merken (angedockte/aufgezogene nicht – die ordnet Windows).
                 if (reason == SkipReason.Maximized) RememberLayout(tw, monitor, tw.Frame, maximized: true);
             }
@@ -534,11 +552,19 @@ internal sealed class WindowTracker : IDisposable
     {
         bool adjust = _settings.Enabled && _settings.AdjustAfterDisplayChange;
 
-        foreach (var hwnd in _movedDuringChange.Where(p => now - p.Value >= WindowCalmTime).Select(p => p.Key).ToList())
+        var calmWindows = _movedDuringChange.Where(p => now - p.Value >= WindowCalmTime).Select(p => p.Key).ToList();
+        if (calmWindows.Count > 0)
         {
-            _movedDuringChange.Remove(hwnd);
-            _pending.Remove(hwnd);
-            if (AdjustAfterDisplayChange(hwnd, adjust)) _adjustedThisChange++;
+            // Monitorkennungen frisch lesen: Mitten im Umbau zwischengespeicherte können schon veraltet sein.
+            _monitors.Invalidate();
+            bool placeholderNow = MonitorDescriptor.OnlyPlaceholders(_monitors.GetAll());
+            foreach (var hwnd in calmWindows)
+            {
+                _movedDuringChange.Remove(hwnd);
+                _pending.Remove(hwnd);
+                // Auf der Ersatzanzeige nichts anpassen – der letzte Durchgang entscheidet mit dem endgültigen Stand.
+                if (!placeholderNow && AdjustAfterDisplayChange(hwnd, adjust)) _adjustedThisChange++;
+            }
         }
 
         bool calm = now - _lastLocationEvent >= GlobalCalmTime;
@@ -549,11 +575,23 @@ internal sealed class WindowTracker : IDisposable
         _pending.Clear();
         _monitors.Invalidate();
 
+        var monitors = _monitors.GetAll();
+        if (MonitorDescriptor.OnlyPlaceholders(monitors))
+        {
+            if (!_onPlaceholder)
+                Log.Info($"Nur Ersatzanzeige ohne Monitor aktiv ({string.Join(", ", monitors.Select(m => $"{m.Bounds.Width}×{m.Bounds.Height}"))}, " +
+                         "z. B. abgesteckt bei zugeklapptem Notebook) – Fenster werden erst angepasst, wenn wieder ein Monitor da ist");
+            _onPlaceholder = true;
+            return;
+        }
+        bool afterPlaceholder = _onPlaceholder;
+        _onPlaceholder = false;
+
         // Zur Nachvollziehbarkeit: welche Konstellation erkannt wurde und für wie viele Fenster eine Anordnung bekannt ist.
         string configKey = CurrentConfigKey();
         int known = _windows.Values.Count(t => t.Layouts.ContainsKey(configKey));
-        Log.Info($"Monitorkonstellation: {string.Join(", ", _monitors.GetAll().Select(m => $"{m.FriendlyName} [{m.Key}]"))}" +
-                 $" – gemerkte Anordnung für {known} Fenster");
+        Log.Info($"Monitorkonstellation: {string.Join(", ", monitors.Select(m => $"{m.FriendlyName} [{m.Key}]"))}" +
+                 $" – gemerkte Anordnung für {known} Fenster{(afterPlaceholder ? " (Ausgangsbasis: Stand vor der Ersatzanzeige)" : string.Empty)}");
         foreach (var hwnd in WindowInspector.EnumerateTopLevelWindows())
         {
             if (AdjustAfterDisplayChange(hwnd, adjust)) _adjustedThisChange++;
@@ -600,13 +638,18 @@ internal sealed class WindowTracker : IDisposable
 
             var monitor = _monitors.FromWindow(hwnd);
             if (monitor == null || WindowInspector.IsFullScreen(snap, monitor.Bounds)) return false;
-            if (IsFullHeight(snap, monitor))
+
+            _windows.TryGetValue(hwnd, out var tw);
+            // Volle Höhe: angedockt lassen – außer das Fenster war vorher normal und erst Windows hat es beim Umräumen
+            // auf die Höhe des (kleineren) Bildschirms gestaucht.
+            bool squeezed = IsFullHeight(snap, monitor) && tw is { WasNormal: true, HasNormalFrame: true };
+            if (IsFullHeight(snap, monitor) && !squeezed)
             {
                 HandleSkipped(hwnd, SkipReason.FullHeight, snap, Trigger.Snapshot);
                 return false;
             }
 
-            if (!_windows.TryGetValue(hwnd, out var tw) || !tw.HasNormalFrame)
+            if (tw is not { HasNormalFrame: true })
             {
                 GetOrAdd(hwnd, DateTime.MinValue).Record(monitor, snap.FrameRect);
                 return false;
@@ -616,6 +659,12 @@ internal sealed class WindowTracker : IDisposable
             bool otherWorkArea = tw.WorkArea != monitor.WorkArea;
             if (!otherMonitor && !otherWorkArea)
             {
+                if (squeezed && adjust && snap.FrameRect != tw.Frame)
+                {
+                    // Zurück auf demselben Monitor, aber von Windows gestaucht: alte Größe wiederherstellen.
+                    Apply(snap, tw.Frame, $"zurück auf {monitor.DisplayName}", "Größe von vor der Anzeigeänderung", monitor, tw);
+                    return true;
+                }
                 tw.Record(monitor, snap.FrameRect);
                 RememberLayout(tw, monitor, snap.FrameRect, maximized: false);
                 return false;
@@ -677,8 +726,8 @@ internal sealed class WindowTracker : IDisposable
             return true;
         }
 
-        // Normales Fenster: angedockte/Vollbild-Fenster nicht anfassen.
-        if (WindowInspector.IsFullScreen(snap, current.Bounds) || IsFullHeight(snap, current)) return false;
+        // Normales Fenster: angedockte/Vollbild-Fenster nicht anfassen (volle Höhe nur, wenn nicht erst Windows gestaucht hat).
+        if (WindowInspector.IsFullScreen(snap, current.Bounds) || (IsFullHeight(snap, current) && !tw.WasNormal)) return false;
 
         // Exakt die gemerkte Position – hat sich der Arbeitsbereich geändert (z. B. Auflösung), prozentual umgerechnet.
         var targetFrame = SizeCalculator.Percent(entry.WorkArea, entry.Frame, target.WorkArea, snap.FrameRect, keepCurrentPosition: false);
@@ -701,7 +750,7 @@ internal sealed class WindowTracker : IDisposable
     /// <summary>Merkt sich die Anordnung des Fensters für die aktuelle Monitorkonstellation (nicht während einer Anzeigeänderung).</summary>
     private void RememberLayout(TrackedWindow tw, MonitorDescriptor monitor, Rectangle frame, bool maximized)
     {
-        if (!_settings.RestoreLayoutPerConfiguration || _relayoutPending) return;
+        if (!_settings.RestoreLayoutPerConfiguration || Frozen) return;
         string key = CurrentConfigKey();
         // Nur merken, wenn der Monitor zur ermittelten Konstellation gehört (Schutz vor Momentaufnahmen mitten im Umbau).
         if (!key.Split('|').Contains(monitor.Key, StringComparer.OrdinalIgnoreCase)) return;

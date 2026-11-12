@@ -22,7 +22,8 @@ resized by hand every time. LSM Display Resizer does that for you.
     scaling (e.g. laptop 200 %, monitor 100 %) is taken into account.
   - **Fixed rules**: a target size per program and monitor, in percent or pixels.
 - **Docking/undocking:** after Windows has rearranged the windows, the app adjusts each moved window as soon as it stops
-  moving (usually after 2–3 seconds), based on its state before the change.
+  moving (usually after 2–3 seconds), based on its state before the change. The 1024×768 placeholder display Windows
+  briefly activates when you unplug with the lid closed is skipped: windows are adjusted on the next real monitor.
 - **Layout per monitor setup:** for every combination of connected monitors (recognized by EDID serial number, since Windows often assigns new device IDs when docking) the app remembers
   which monitor each window was on. When you return to a known setup, windows go back – normal windows with position and
   size, maximized windows stay maximized and only switch monitor.
