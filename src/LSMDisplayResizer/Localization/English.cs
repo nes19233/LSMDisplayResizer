@@ -251,6 +251,8 @@ internal static class English
             "Download, verify the checksum, install and restart (takes about a minute).",
         ["Release-Seite öffnen"] = "Open release page",
         ["Später"] = "Later",
+        ["Änderungen ansehen und Dateien selbst herunterladen."] = "See what changed and download the files yourself.",
+        ["Erinnerung bei der nächsten täglichen Prüfung."] = "Reminder at the next daily check.",
         ["Installiert ist Version {0}."] = "Installed version: {0}.",
         ["Diese Installation gilt für alle Benutzer des Computers und wird von der IT bzw. einem Administrator aktualisiert."] =
             "This installation is for all users of the computer and is updated by IT or an administrator.",

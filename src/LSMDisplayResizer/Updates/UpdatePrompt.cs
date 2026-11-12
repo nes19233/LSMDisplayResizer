@@ -4,6 +4,10 @@ using LSMDisplayResizer.Logging;
 namespace LSMDisplayResizer.Updates;
 
 /// <summary>Dialoge zur Update-Prüfung: Hinweis, Download mit Fortschritt, Fehler.</summary>
+/// <remarks>
+/// Regel des Windows-Dialogs: Eigene Schaltflächen und Befehlslinks dürfen nicht auf derselben Seite stehen
+/// (Standard-Schaltflächen wie OK/Schließen dürfen zu beiden). Die Seiten werden in <c>UpdatePromptTests</c> angezeigt.
+/// </remarks>
 internal static class UpdatePrompt
 {
     private static bool _open;
@@ -53,16 +57,19 @@ internal static class UpdatePrompt
         }
     }
 
-    private static void ShowCore(IWin32Window? owner, ReleaseInfo release, Action exitApp)
+    internal sealed record MainPage(TaskDialogPage Page, TaskDialogButton Update, TaskDialogButton ReleasePage, TaskDialogButton Later);
+
+    /// <summary>Hinweisseite. "Jetzt aktualisieren" nur bei einer Installation pro Benutzer.</summary>
+    internal static MainPage BuildMainPage(ReleaseInfo release, InstallKind kind)
     {
-        var kind = UpdateService.InstallKind;
+        // Alle als Befehlslinks (keine Mischung mit eigenen Schaltflächen, siehe oben).
         var update = new TaskDialogCommandLinkButton(L.T("Jetzt aktualisieren"),
             L.T("Herunterladen, Prüfsumme prüfen, installieren und neu starten (dauert etwa eine Minute)."))
         {
             AllowCloseDialog = false,
         };
-        var page = new TaskDialogButton(L.T("Release-Seite öffnen"));
-        var later = new TaskDialogButton(L.T("Später"));
+        var page = new TaskDialogCommandLinkButton(L.T("Release-Seite öffnen"), L.T("Änderungen ansehen und Dateien selbst herunterladen."));
+        var later = new TaskDialogCommandLinkButton(L.T("Später"), L.T("Erinnerung bei der nächsten täglichen Prüfung."));
 
         string text = L.F("Installiert ist Version {0}.", AppInfo.Version) + " " + kind switch
         {
@@ -82,26 +89,14 @@ internal static class UpdatePrompt
         if (kind == InstallKind.PerUser) main.Buttons.Add(update);
         main.Buttons.Add(page);
         main.Buttons.Add(later);
-
-        bool exit = false;
-        update.Click += (_, _) =>
-        {
-            Log.Info($"Update auf {release.Version}: Download gestartet");
-            StartDownload(main, release, () => exit = true);
-        };
-
-        Log.Info($"Update-Hinweis für {release.Version} angezeigt ({kind})");
-        var result = owner != null ? TaskDialog.ShowDialog(owner, main) : TaskDialog.ShowDialog(main);
-        if (!exit && result == later) Log.Info("Update-Hinweis: später");
-        if (result == page) UpdateService.OpenReleasePage(release);
-        if (exit) exitApp();
+        return new MainPage(main, update, page, later);
     }
 
-    private static void StartDownload(TaskDialogPage main, ReleaseInfo release, Action markExit)
+    /// <summary>Fortschrittsseite während des Downloads.</summary>
+    internal static TaskDialogPage BuildProgressPage(ReleaseInfo release, out TaskDialogButton cancel)
     {
-        var cts = new CancellationTokenSource();
-        var cancel = new TaskDialogButton(L.T("Abbrechen"));
-        var progressPage = new TaskDialogPage
+        cancel = new TaskDialogButton(L.T("Abbrechen"));
+        var page = new TaskDialogPage
         {
             Caption = AppInfo.Name,
             Heading = L.F("Version {0} wird heruntergeladen …", release.Version),
@@ -110,7 +105,51 @@ internal static class UpdatePrompt
             ProgressBar = new TaskDialogProgressBar { Minimum = 0, Maximum = 100, Value = 0 },
             AllowCancel = true,
         };
-        progressPage.Buttons.Add(cancel);
+        page.Buttons.Add(cancel);
+        return page;
+    }
+
+    /// <summary>Fehlerseite mit Link zur Release-Seite.</summary>
+    internal static TaskDialogPage BuildErrorPage(ReleaseInfo release, string message)
+    {
+        var openPage = new TaskDialogButton(L.T("Release-Seite öffnen"));
+        openPage.Click += (_, _) => UpdateService.OpenReleasePage(release);
+        var error = new TaskDialogPage
+        {
+            Caption = AppInfo.Name,
+            Heading = L.T("Update fehlgeschlagen"),
+            Text = message,
+            Icon = TaskDialogIcon.Error,
+            AllowCancel = true,
+        };
+        error.Buttons.Add(openPage);
+        error.Buttons.Add(TaskDialogButton.Close);
+        return error;
+    }
+
+    private static void ShowCore(IWin32Window? owner, ReleaseInfo release, Action exitApp)
+    {
+        var kind = UpdateService.InstallKind;
+        var main = BuildMainPage(release, kind);
+
+        bool exit = false;
+        main.Update.Click += (_, _) =>
+        {
+            Log.Info($"Update auf {release.Version}: Download gestartet");
+            StartDownload(main.Page, release, () => exit = true);
+        };
+
+        Log.Info($"Update-Hinweis für {release.Version} angezeigt ({kind})");
+        var result = owner != null ? TaskDialog.ShowDialog(owner, main.Page) : TaskDialog.ShowDialog(main.Page);
+        if (!exit && result == main.Later) Log.Info("Update-Hinweis: später");
+        if (result == main.ReleasePage) UpdateService.OpenReleasePage(release);
+        if (exit) exitApp();
+    }
+
+    private static void StartDownload(TaskDialogPage main, ReleaseInfo release, Action markExit)
+    {
+        var cts = new CancellationTokenSource();
+        var progressPage = BuildProgressPage(release, out var cancel);
         cancel.Click += (_, _) => cts.Cancel();
         // Auch beim Schließen über X abbrechen – sonst liefe der Download im Hintergrund weiter und startete die Installation.
         progressPage.Destroyed += (_, _) => cts.Cancel();
@@ -137,20 +176,8 @@ internal static class UpdatePrompt
             {
                 Log.Error("Update fehlgeschlagen", ex);
                 if (progressPage.BoundDialog == null) return;
-                var close = TaskDialogButton.Close;
-                var openPage = new TaskDialogButton(L.T("Release-Seite öffnen"));
-                openPage.Click += (_, _) => UpdateService.OpenReleasePage(release);
-                var error = new TaskDialogPage
-                {
-                    Caption = AppInfo.Name,
-                    Heading = L.T("Update fehlgeschlagen"),
-                    Text = ex is InvalidOperationException ? ex.Message : L.F("Fehler: {0}", ex.Message),
-                    Icon = TaskDialogIcon.Error,
-                    AllowCancel = true,
-                };
-                error.Buttons.Add(openPage);
-                error.Buttons.Add(close);
-                progressPage.Navigate(error);
+                progressPage.Navigate(BuildErrorPage(release,
+                    ex is InvalidOperationException ? ex.Message : L.F("Fehler: {0}", ex.Message)));
             }
         };
 
