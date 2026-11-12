@@ -6,6 +6,7 @@ using LSMDisplayResizer.Tracking;
 using LSMDisplayResizer.UI;
 using LSMDisplayResizer.Wallpaper;
 using LSMDisplayResizer.Overlay;
+using LSMDisplayResizer.Updates;
 using static LSMDisplayResizer.Interop.NativeMethods;
 
 namespace LSMDisplayResizer;
@@ -23,6 +24,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly ToolStripMenuItem _settingsItem;
     private readonly ToolStripMenuItem _logItem;
     private readonly ToolStripMenuItem _exitItem;
+    private readonly ToolStripMenuItem _updateItem;
     private readonly Icon _iconActive;
     private readonly Icon _iconPaused;
     private readonly RegisteredWaitHandle _activateWait;
@@ -30,6 +32,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly HotkeyManager _hotkey;
     private readonly WallpaperService _wallpaper;
     private readonly MonitorSeparatorOverlay _separator;
+    private readonly UpdateService _updates;
+    private ReleaseInfo? _availableUpdate;
+    private bool _balloonIsUpdate;
 
     private AppSettings _settings;
     private SettingsForm? _settingsForm;
@@ -63,6 +68,11 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _exitItem = new ToolStripMenuItem("Beenden", null, (_, _) => ExitThread());
         _menu.Items.Add(_settingsItem);
         _menu.Items.Add(_logItem);
+        _updateItem = new ToolStripMenuItem("Nach Updates suchen …", null, (_, _) => OnUpdateItemClicked())
+        {
+            Visible = !UpdateService.DisabledByPolicy,
+        };
+        _menu.Items.Add(_updateItem);
         _menu.Items.Add(new ToolStripSeparator());
         _menu.Items.Add(_exitItem);
         ApplyMenuTexts();
@@ -73,6 +83,11 @@ internal sealed class TrayApplicationContext : ApplicationContext
             Visible = true,
         };
         _tray.DoubleClick += (_, _) => ShowSettings();
+        _tray.BalloonTipClicked += (_, _) =>
+        {
+            if (_balloonIsUpdate && _availableUpdate != null) UpdatePrompt.Show(null, _availableUpdate, ExitThread);
+        };
+        _tray.BalloonTipClosed += (_, _) => _balloonIsUpdate = false;
 
         _tracker = new WindowTracker(_monitors, _settings);
         _tracker.Start();
@@ -82,6 +97,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         _separator = new MonitorSeparatorOverlay(_monitors, () => _settings);
         _separator.Start();
+
+        _updates = new UpdateService(() => _settings, _uiContext);
+        _updates.UpdateAvailable += OnUpdateAvailable;
+        _updates.Start();
 
 #if DEBUG
         // Nur Debug-Build: Anzeigeänderung von außen simulieren (Tests ohne echtes An-/Abdocken).
@@ -125,6 +144,37 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _settingsItem.Text = L.T("Einstellungen …");
         _logItem.Text = L.T("Log anzeigen …");
         _exitItem.Text = L.T("Beenden");
+        _updateItem.Text = _availableUpdate != null
+            ? L.F("Update auf Version {0} installieren …", _availableUpdate.Version)
+            : L.T("Nach Updates suchen …");
+    }
+
+    private void OnUpdateAvailable(ReleaseInfo release)
+    {
+        _availableUpdate = release;
+        ApplyMenuTexts();
+        _balloonIsUpdate = true;
+        _tray.ShowBalloonTip(10000, AppInfo.Name,
+            L.F("Version {0} ist verfügbar. Zum Aktualisieren hier klicken.", release.Version), ToolTipIcon.Info);
+    }
+
+    private void OnUpdateItemClicked()
+    {
+        if (_availableUpdate != null) UpdatePrompt.Show(null, _availableUpdate, ExitThread);
+        else CheckForUpdates(null);
+    }
+
+    /// <summary>Manuelle Update-Prüfung (Tray-Menü bzw. Einstellungen).</summary>
+    private async void CheckForUpdates(IWin32Window? owner)
+    {
+        try
+        {
+            await UpdatePrompt.CheckAndShowAsync(owner, ExitThread);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Update-Prüfung fehlgeschlagen", ex);
+        }
     }
 
     /// <summary>Einstellungsfenster schließen und neu öffnen (z. B. nach einem Sprachwechsel).</summary>
@@ -154,7 +204,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 return;
             }
 
-            _settingsForm = new SettingsForm(_settings.Clone(), _monitors, _wallpaper, ApplySettings, ShowLog, ReopenSettings);
+            _settingsForm = new SettingsForm(_settings.Clone(), _monitors, _wallpaper, ApplySettings, ShowLog, ReopenSettings, CheckForUpdates);
             _settingsForm.FormClosed += (_, _) => _settingsForm = null;
             _settingsForm.Show();
             BringToFront(_settingsForm);
@@ -245,6 +295,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _tracker.Dispose();
         _wallpaper.Dispose();
         _separator.Dispose();
+        _updates.Dispose();
         _tray.Visible = false;
         _tray.Dispose();
         _menu.Dispose();

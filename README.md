@@ -62,7 +62,10 @@ Unter [Releases](../../releases) gibt es zwei Varianten. Voraussetzung jeweils W
 **ohne Administratorrechte**. Der Installer richtet Startmenü-Verknüpfung und Autostart ein und bietet am Ende an,
 die App gleich zu starten.
 
-- **Update:** neueres MSI einfach installieren – die laufende App wird beendet und ersetzt, Einstellungen bleiben.
+- **Update:** Die App sucht einmal täglich bei GitHub nach einer neuen Version und meldet sich im Infobereich. Ein Klick
+  auf „Jetzt aktualisieren“ lädt das MSI, prüft es anhand der SHA-256-Prüfsumme aus dem Release, installiert es und
+  startet die App neu – ohne Adminrechte, Einstellungen bleiben. Manuell: Tray-Menü → **Nach Updates suchen …**, oder
+  einfach ein neueres MSI installieren.
 - **Deinstallieren:** Einstellungen → Apps → „LSM Display Resizer“. Einstellungen und Log in `%AppData%` bleiben erhalten.
 
 **Für alle Benutzer / IT-Verteilung** (mit Administratorrechten, z. B. per Intune, SCCM oder Skript):
@@ -70,11 +73,15 @@ die App gleich zu starten.
 ```powershell
 msiexec /i LSMDisplayResizer-x.y.z-win-x64-de.msi ALLUSERS=1 /qn               # nach C:\Program Files, Autostart für alle
 msiexec /i LSMDisplayResizer-x.y.z-win-x64-de.msi ALLUSERS=1 AUTOSTART=0 /qn   # dasselbe ohne Autostart
+msiexec /i LSMDisplayResizer-x.y.z-win-x64-de.msi ALLUSERS=1 UPDATECHECK=0 /qn # ohne Update-Prüfung
 msiexec /i LSMDisplayResizer-x.y.z-win-x64-de.msi /qn                          # still, nur aktueller Benutzer
 msiexec /x LSMDisplayResizer-x.y.z-win-x64-de.msi /qn                          # deinstallieren
 ```
 
-Auch bei der Installation für alle Benutzer läuft die App selbst im Benutzerkontext (ohne Adminrechte).
+Auch bei der Installation für alle Benutzer läuft die App selbst im Benutzerkontext (ohne Adminrechte). Sie installiert
+Updates dann nicht selbst, sondern weist nur darauf hin – das Verteilen bleibt Sache der IT. Mit `UPDATECHECK=0` fragt sie
+gar nicht bei GitHub nach (Registrierungswert `UpdateCheck` = 0 unter `HKLM` bzw. `HKCU\Software\LSM Display Resizer`);
+die Einstellung ist dann in der App gesperrt.
 
 ### Portable EXE
 
@@ -104,6 +111,7 @@ Beim ersten Start einer heruntergeladenen Datei kann Windows SmartScreen warnen,
 - **Aktiv / Pausiert** – automatische Anpassung ein- oder ausschalten (pausiert = graues Symbol mit rotem Punkt)
 - **Einstellungen …** – auch per Doppelklick auf das Symbol oder durch erneutes Starten der EXE
 - **Log anzeigen …** – letzte Aktionen, hilfreich bei der Fehlersuche
+- **Nach Updates suchen …** – bzw. **Update auf Version … installieren …**, wenn eine neue Version gefunden wurde
 - **Beenden**
 
 **Einstellungen:**

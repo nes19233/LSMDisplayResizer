@@ -50,24 +50,33 @@ From [Releases](../../releases) (Windows 10 or 11, 64-bit; no .NET installation 
 | `LSMDisplayResizer-x.y.z-win-x64.exe` | Portable single file, no installation |
 
 **Double-click** the MSI to install for the current user into `%LocalAppData%\Programs\LSM Display Resizer\` –
-**no administrator rights required**. Updating: simply install a newer MSI. Uninstall via Settings → Apps.
+**no administrator rights required**. Uninstall via Settings → Apps.
+
+**Updates:** once a day the app asks GitHub for a new version and shows a notification. "Update now" downloads the MSI,
+verifies it against the SHA-256 checksum from the release, installs it and restarts the app – no administrator rights,
+settings are kept. Manually: tray menu → **Check for updates …**, or simply install a newer MSI.
 
 **For all users / IT deployment** (with administrator rights, e.g. via Intune, SCCM or script):
 
 ```powershell
 msiexec /i LSMDisplayResizer-x.y.z-win-x64-en.msi ALLUSERS=1 /qn               # to C:\Program Files, autostart for all
 msiexec /i LSMDisplayResizer-x.y.z-win-x64-en.msi ALLUSERS=1 AUTOSTART=0 /qn   # same without autostart
+msiexec /i LSMDisplayResizer-x.y.z-win-x64-en.msi ALLUSERS=1 UPDATECHECK=0 /qn # without update check
 msiexec /x LSMDisplayResizer-x.y.z-win-x64-en.msi /qn                          # uninstall
 ```
 
-The app itself always runs in the user context. The files are not signed: SmartScreen may warn on download, and
+The app itself always runs in the user context. With a per-machine installation it does not install updates itself but
+only points them out – deployment stays with IT. With `UPDATECHECK=0` it never contacts GitHub (registry value
+`UpdateCheck` = 0 under `HKLM` or `HKCU\Software\LSM Display Resizer`); the setting is then locked in the app.
+
+The files are not signed: SmartScreen may warn on download, and
 AppLocker/WDAC policies may block unsigned programs in user folders – installing per machine (`ALLUSERS=1`) into
 `C:\Program Files` is allowed by the default AppLocker rules.
 
 ## Usage
 
 Right-click the tray icon: **Active / Paused**, **Settings …** (also by double-click or by starting the EXE again),
-**Show log …**, **Exit**. In the settings window, **OK** applies and closes, **Cancel** discards, **Apply** applies and keeps
+**Show log …**, **Check for updates …**, **Exit**. In the settings window, **OK** applies and closes, **Cancel** discards, **Apply** applies and keeps
 the window open. Language: *General → System → Language* ("Automatic" follows the Windows display language).
 Log entries are currently always in German.
 

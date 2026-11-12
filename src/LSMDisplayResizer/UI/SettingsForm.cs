@@ -32,6 +32,7 @@ internal sealed class SettingsForm : Form
     private readonly TextBox _txtHotkey;
     private readonly CheckBox _chkAutostart;
     private readonly CheckBox _chkVerbose;
+    private readonly CheckBox _chkUpdates;
     private readonly ComboBox _cmbLanguage;
     private readonly Action _reopen;
     private readonly string _initialLanguage;
@@ -53,7 +54,7 @@ internal sealed class SettingsForm : Form
     private Keys _hotkey;
 
     public SettingsForm(AppSettings settings, MonitorManager monitors, WallpaperService wallpaper,
-        Func<AppSettings, string?> apply, Action showLog, Action reopen)
+        Func<AppSettings, string?> apply, Action showLog, Action reopen, Action<IWin32Window?> checkForUpdates)
     {
         _settings = settings;
         _reopen = reopen;
@@ -125,7 +126,7 @@ internal sealed class SettingsForm : Form
         Ui.AddRow(general, _chkRestoreLayout);
         Ui.AddRow(general, Ui.Text("Wechselt man z. B. vom Laptop allein wieder auf Laptop + zwei Monitore, kommt jedes Fenster auf den " +
                                    "Monitor zurück, auf dem es in dieser Konstellation zuletzt war – normale Fenster mit Position und Größe, " +
-                                   "maximierte bleiben maximiert. Erkannt an den Geräte-IDs der Monitore. Gilt für Fenster, die zwischendurch " +
+                                   "maximierte bleiben maximiert. Monitore werden an ihrer Seriennummer erkannt. Gilt für Fenster, die zwischendurch " +
                                    "geöffnet bleiben.", hint: true, indent: 20));
 
         var dockRow = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = Padding.Empty };
@@ -181,6 +182,23 @@ internal sealed class SettingsForm : Form
         Ui.AddRow(general, _chkAutostart);
         _chkVerbose = Ui.Check("Ausführliches Log (auch ignorierte Fenster protokollieren)");
         Ui.AddRow(general, _chkVerbose);
+
+        var updateRow = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = Padding.Empty };
+        _chkUpdates = Ui.Check("Einmal täglich nach Updates suchen");
+        _chkUpdates.Margin = new Padding(3, 6, 6, 3);
+        updateRow.Controls.Add(_chkUpdates);
+        var checkNow = Ui.Button("Jetzt suchen …", (_, _) => checkForUpdates(this));
+        updateRow.Controls.Add(checkNow);
+        Ui.AddRow(general, updateRow);
+        Ui.AddRow(general, Ui.Text("Fragt bei GitHub nach der neuesten Version (es werden keine Daten über Sie gesendet). Bei einer " +
+                                   "Installation für den eigenen Benutzer lässt sich das Update mit einem Klick installieren – die " +
+                                   "Datei wird vorher anhand ihrer Prüfsumme kontrolliert.", hint: true, indent: 20));
+        if (Updates.UpdateService.DisabledByPolicy)
+        {
+            _chkUpdates.Enabled = false;
+            checkNow.Enabled = false;
+            _chkUpdates.Text = "Nach Updates suchen (von der Installation abgeschaltet)";
+        }
 
         var langRow = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = Padding.Empty };
         langRow.Controls.Add(new Label { Text = "Sprache:", AutoSize = true, Margin = new Padding(3, 7, 3, 3) });
@@ -398,6 +416,7 @@ internal sealed class SettingsForm : Form
             _chkAutostart.Checked = Autostart.IsEnabled();
         }
         _chkVerbose.Checked = _settings.VerboseLog;
+        _chkUpdates.Checked = _settings.CheckForUpdates && !Updates.UpdateService.DisabledByPolicy;
         _cmbLanguage.SelectedIndex = _settings.Language switch { "de" => 1, "en" => 2, _ => 0 };
 
         FillRules();
@@ -632,6 +651,7 @@ internal sealed class SettingsForm : Form
         _settings.HotkeyEnabled = _chkHotkey.Checked;
         if (HotkeyManager.IsValid(_hotkey)) _settings.Hotkey = _hotkey;
         _settings.VerboseLog = _chkVerbose.Checked;
+        if (_chkUpdates.Enabled) _settings.CheckForUpdates = _chkUpdates.Checked;
         _settings.Language = _cmbLanguage.SelectedIndex switch { 1 => "de", 2 => "en", _ => "auto" };
         _settings.ExcludedProcesses = _excluded.Items.Cast<string>().ToList();
         _wallpaperPage.SaveTo(_settings.Wallpaper);

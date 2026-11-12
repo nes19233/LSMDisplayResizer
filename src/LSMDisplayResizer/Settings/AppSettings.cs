@@ -61,6 +61,9 @@ internal sealed class AppSettings
     /// <summary>Ausführliches Log, z. B. warum ein Fenster ignoriert wurde.</summary>
     public bool VerboseLog { get; set; }
 
+    /// <summary>Einmal täglich bei GitHub nach einer neuen Version suchen und darauf hinweisen.</summary>
+    public bool CheckForUpdates { get; set; } = true;
+
     /// <summary>Sprache der Oberfläche: "auto" (Windows-Sprache), "de" oder "en".</summary>
     public string Language { get; set; } = "auto";
 

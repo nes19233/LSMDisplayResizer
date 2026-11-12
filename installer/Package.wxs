@@ -6,6 +6,7 @@
   ohne Administratorrechte.
   Für alle Benutzer (IT-Verteilung, mit Adminrechten): msiexec /i LSMDisplayResizer.msi ALLUSERS=1 /qn
   Ohne Autostart: msiexec /i LSMDisplayResizer.msi AUTOSTART=0
+  Ohne Update-Prüfung: msiexec /i LSMDisplayResizer.msi UPDATECHECK=0
   (Details im README, Abschnitt "Installation".)
 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
@@ -33,6 +34,9 @@
     <!-- Autostart (HKCU bzw. bei ALLUSERS=1 HKLM). Mit AUTOSTART=0 abschaltbar. -->
     <Property Id="AUTOSTART" Value="1" Secure="yes" />
 
+    <!-- Update-Prüfung der App (GitHub). Mit UPDATECHECK=0 abgeschaltet, in der App dann nicht einschaltbar. -->
+    <Property Id="UPDATECHECK" Value="1" Secure="yes" />
+
     <!-- Eintrag unter "Apps" -->
     <Icon Id="AppIcon" SourceFile="$(RepoRoot)src\LSMDisplayResizer\Resources\app.ico" />
     <Property Id="ARPPRODUCTICON" Value="AppIcon" />
@@ -51,6 +55,10 @@
     <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
       <Component Id="AppExe" Bitness="always64">
         <File Id="AppExe" Source="$(AppPublishDir)LSMDisplayResizer.exe" KeyPath="yes" />
+      </Component>
+      <Component Id="UpdatePolicy" Bitness="always64">
+        <RegistryValue Root="HKMU" Key="Software\LSM Display Resizer" Name="UpdateCheck"
+                       Type="integer" Value="[UPDATECHECK]" KeyPath="yes" />
       </Component>
       <Component Id="AppLicense" Bitness="always64">
         <File Id="LicenseFile" Source="$(RepoRoot)LICENSE" Name="LICENSE.txt" KeyPath="yes" />

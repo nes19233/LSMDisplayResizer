@@ -210,8 +210,8 @@ internal static class English
             "Only the size changes; the top-left corner stays where the window was dropped. With Win+Shift+Arrow the position is always transferred relatively.",
         ["Windows zieht angedockte Fenster (z. B. linke Bildschirmhälfte) oft nur auf volle Höhe, statt sie zu maximieren. Solche Fenster werden dann wie maximierte behandelt: Ihre Größe wird nicht gemerkt, es gilt weiter die letzte normale Größe."] =
             "Windows often only stretches snapped windows (e.g. left half of the screen) to full height instead of maximizing them. Such windows are then treated like maximized ones: their size is not remembered, the last normal size still applies.",
-        ["Wechselt man z. B. vom Laptop allein wieder auf Laptop + zwei Monitore, kommt jedes Fenster auf den Monitor zurück, auf dem es in dieser Konstellation zuletzt war – normale Fenster mit Position und Größe, maximierte bleiben maximiert. Erkannt an den Geräte-IDs der Monitore. Gilt für Fenster, die zwischendurch geöffnet bleiben."] =
-            "When switching e.g. from the laptop alone back to laptop + two monitors, every window returns to the monitor it was last on in that setup – normal windows with position and size, maximized ones stay maximized. Recognized by the monitors’ device IDs. Applies to windows that stay open in between.",
+        ["Wechselt man z. B. vom Laptop allein wieder auf Laptop + zwei Monitore, kommt jedes Fenster auf den Monitor zurück, auf dem es in dieser Konstellation zuletzt war – normale Fenster mit Position und Größe, maximierte bleiben maximiert. Monitore werden an ihrer Seriennummer erkannt. Gilt für Fenster, die zwischendurch geöffnet bleiben."] =
+            "When switching e.g. from the laptop alone back to laptop + two monitors, every window returns to the monitor it was last on in that setup – normal windows with position and size, maximized ones stay maximized. Monitors are recognized by their serial number. Applies to windows that stay open in between.",
         ["Wird z. B. der Laptop von der Dockingstation abgezogen, räumt Windows die Fenster auf die verbliebenen Monitore um. Sobald ein Fenster nicht mehr bewegt wird, passt die App es ausgehend von seinem Zustand vorher an, sodass Position und Größenverhältnis wieder stimmen – meist nach 2–3 Sekunden. Die Höchstdauer greift nur, wenn Windows nicht zur Ruhe kommt."] =
             "When e.g. the laptop is undocked, Windows moves the windows to the remaining monitors. As soon as a window stops moving, the app adjusts it based on its previous state so that position and proportions are right again – usually after 2–3 seconds. The maximum only applies if Windows does not settle.",
         ["In das Feld klicken und die Tastenkombination drücken (z. B. Strg + Alt + R). Wendet eine passende feste Regel an, sonst wird das Fenster in den Arbeitsbereich eingepasst."] =
@@ -232,5 +232,40 @@ internal static class English
             "Suitable for monitors of the same size and resolution; works for any arrangement.",
         ["Rahmenkorrektur: Standard 0 mm – die Bilder stoßen direkt aneinander. Optional lässt sich die Breite der Gehäuseränder angeben; dann wird der Bildstreifen „hinter dem Rahmen“ ausgelassen, sodass schräge Linien über die Monitorgrenze in der Flucht weiterlaufen. Zwischen Hälften desselben Monitors (Bild-neben-Bild) entfällt sie immer."] =
             "Bezel correction: default 0 mm – the images meet directly. Optionally enter the width of the bezels; the strip of the image “behind the bezel” is then skipped so that diagonal lines continue in line across the monitor border. Between halves of the same monitor (picture-by-picture) it never applies.",
+
+        // --- Updates ---
+        ["Nach Updates suchen …"] = "Check for updates …",
+        ["Update auf Version {0} installieren …"] = "Install update to version {0} …",
+        ["Version {0} ist verfügbar. Zum Aktualisieren hier klicken."] = "Version {0} is available. Click here to update.",
+        ["Einmal täglich nach Updates suchen"] = "Check for updates once a day",
+        ["Jetzt suchen …"] = "Check now …",
+        ["Nach Updates suchen (von der Installation abgeschaltet)"] = "Check for updates (turned off by the installation)",
+        ["Fragt bei GitHub nach der neuesten Version (es werden keine Daten über Sie gesendet). Bei einer Installation für den eigenen Benutzer lässt sich das Update mit einem Klick installieren – die Datei wird vorher anhand ihrer Prüfsumme kontrolliert."] =
+            "Asks GitHub for the latest version (no data about you is sent). With an installation for your own user account, the update installs with one click – the file is verified by its checksum first.",
+        ["Update-Prüfung fehlgeschlagen"] = "Update check failed",
+        ["GitHub ist nicht erreichbar: {0}"] = "GitHub cannot be reached: {0}",
+        ["Die App ist aktuell"] = "The app is up to date",
+        ["Version {0} ist die neueste Version."] = "Version {0} is the latest version.",
+        ["Jetzt aktualisieren"] = "Update now",
+        ["Herunterladen, Prüfsumme prüfen, installieren und neu starten (dauert etwa eine Minute)."] =
+            "Download, verify the checksum, install and restart (takes about a minute).",
+        ["Release-Seite öffnen"] = "Open release page",
+        ["Später"] = "Later",
+        ["Installiert ist Version {0}."] = "Installed version: {0}.",
+        ["Diese Installation gilt für alle Benutzer des Computers und wird von der IT bzw. einem Administrator aktualisiert."] =
+            "This installation is for all users of the computer and is updated by IT or an administrator.",
+        ["Diese EXE wurde nicht mit dem Installer installiert – die neue Version gibt es auf der Release-Seite."] =
+            "This EXE was not installed with the installer – get the new version from the release page.",
+        ["Die Einstellungen bleiben erhalten."] = "Your settings are kept.",
+        ["Version {0} ist verfügbar"] = "Version {0} is available",
+        ["Version {0} wird heruntergeladen …"] = "Downloading version {0} …",
+        ["Danach wird die Datei geprüft und die Installation gestartet. Die App startet anschließend neu."] =
+            "The file is then verified and the installation starts. The app restarts afterwards.",
+        ["Update fehlgeschlagen"] = "Update failed",
+        ["Fehler: {0}"] = "Error: {0}",
+        ["Im Release fehlt die Datei {0}."] = "The release is missing the file {0}.",
+        ["Für {0} ist keine Prüfsumme hinterlegt."] = "No checksum is listed for {0}.",
+        ["Die heruntergeladene Datei ist beschädigt oder wurde verändert (Prüfsumme stimmt nicht). Sie wurde verworfen."] =
+            "The downloaded file is damaged or was modified (checksum mismatch). It was discarded.",
     };
 }
