@@ -83,11 +83,13 @@ internal sealed class TrayApplicationContext : ApplicationContext
             Visible = true,
         };
         _tray.DoubleClick += (_, _) => ShowSettings();
+        // Windows 11 legt die Meldung nach Ablauf in die Benachrichtigungszentrale – ein Klick dort kommt nach
+        // "Closed" an. Deshalb merkt sich _balloonIsUpdate die zuletzt gezeigte Meldung, bis eine andere kommt.
         _tray.BalloonTipClicked += (_, _) =>
         {
+            Log.Info($"Benachrichtigung angeklickt{(_balloonIsUpdate ? " (Update)" : string.Empty)}");
             if (_balloonIsUpdate && _availableUpdate != null) UpdatePrompt.Show(null, _availableUpdate, ExitThread);
         };
-        _tray.BalloonTipClosed += (_, _) => _balloonIsUpdate = false;
 
         _tracker = new WindowTracker(_monitors, _settings);
         _tracker.Start();

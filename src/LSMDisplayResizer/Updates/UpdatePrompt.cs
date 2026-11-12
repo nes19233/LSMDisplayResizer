@@ -84,9 +84,15 @@ internal static class UpdatePrompt
         main.Buttons.Add(later);
 
         bool exit = false;
-        update.Click += (_, _) => StartDownload(main, release, () => exit = true);
+        update.Click += (_, _) =>
+        {
+            Log.Info($"Update auf {release.Version}: Download gestartet");
+            StartDownload(main, release, () => exit = true);
+        };
 
+        Log.Info($"Update-Hinweis für {release.Version} angezeigt ({kind})");
         var result = owner != null ? TaskDialog.ShowDialog(owner, main) : TaskDialog.ShowDialog(main);
+        if (!exit && result == later) Log.Info("Update-Hinweis: später");
         if (result == page) UpdateService.OpenReleasePage(release);
         if (exit) exitApp();
     }
