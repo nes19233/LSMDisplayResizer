@@ -195,6 +195,9 @@ Tastatur/Programm, bevor geprüft wird.
   damit man sieht, wo ein Bildschirm endet – z. B. bei einem geteilten Ultrawide-Monitor. Farbe, Stärke (1–4 px, Standard
   1 px) und Deckkraft (Standard 60 %) sind einstellbar. Die Linie lässt Mausklicks durch, erscheint nicht in Taskleiste
   oder Alt+Tab und wird ausgeblendet, solange ein Vollbildprogramm aktiv ist.
+- **Wieder geöffnete Fenster:** Schließt man ein Programmfenster und öffnet das Programm es später auf einem anderen
+  Monitor mit seiner alten Größe (z. B. Outlook nach dem Abdocken), wird es angepasst, als wäre es dorthin verschoben
+  worden.
 - **Anordnung pro Monitorkonstellation:** Die App merkt sich für jede Kombination angeschlossener Monitore (erkannt an
   der EDID-Seriennummer, weil Windows Geräte-IDs beim Andocken oft neu vergibt), auf welchem Monitor jedes Fenster lag. Wechselt man z. B. vom Laptop allein wieder auf Laptop + zwei
   Monitore, kommt jedes Fenster auf seinen Monitor zurück – normale Fenster exakt mit Position und Größe, **maximierte**

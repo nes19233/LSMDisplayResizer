@@ -2,6 +2,19 @@ using LSMDisplayResizer.Monitors;
 
 namespace LSMDisplayResizer.Tests;
 
+public class ReopenSizeTests
+{
+    [Theory]
+    [InlineData(1600, 1200, 1600, 1200, 1.0, true)]   // alte Pixelgröße wiederhergestellt
+    [InlineData(1605, 1195, 1600, 1200, 1.0, true)]   // kleine Abweichung (Rahmen, Rundung)
+    [InlineData(3200, 2400, 1600, 1200, 2.0, true)]   // logische Größe, auf 200 % umgerechnet
+    [InlineData(1000, 700, 1600, 1200, 1.0, false)]   // Programm hat selbst eine passende Größe gewählt
+    [InlineData(800, 600, 1600, 1200, 2.0, false)]
+    public void SizeMatches(int w, int h, int rw, int rh, double ratio, bool expected) =>
+        Assert.Equal(expected, LSMDisplayResizer.Tracking.WindowTracker.SizeMatches(
+            new System.Drawing.Size(w, h), new System.Drawing.Size(rw, rh), ratio));
+}
+
 public class MonitorKeyTests
 {
     private static MonitorDescriptor Monitor(bool placeholder) =>

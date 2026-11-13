@@ -61,6 +61,9 @@ internal sealed class WindowTracker : IDisposable
         /// </summary>
         public bool WasNormal;
 
+        /// <summary>Programm und Fensterklasse ("outlook.exe|rctrl_renwnd32") – zum Wiedererkennen nach dem Schließen.</summary>
+        public string Identity = string.Empty;
+
         public DateTime FirstSeen;
         public DateTime SuppressUntil;
         public bool InMoveSize;
@@ -92,6 +95,12 @@ internal sealed class WindowTracker : IDisposable
     /// <param name="Maximized">Fenster war maximiert – dann wird nur der Monitor wiederhergestellt.</param>
     private readonly record struct LayoutEntry(string MonitorId, string MonitorName, Rectangle Frame, Rectangle WorkArea, bool Maximized);
 
+    /// <summary>Letzter normaler Zustand eines geschlossenen Fensters (je Programm und Fensterklasse).</summary>
+    private sealed record ClosedWindow(string MonitorId, string MonitorName, Rectangle Frame, Rectangle WorkArea, double Scale);
+
+    /// <summary>Höchstzahl gemerkter geschlossener Fenster (älteste fallen heraus).</summary>
+    private const int MaxClosedWindows = 200;
+
     /// <summary>Neue Fenster positionieren sich oft selbst – in dieser Zeit nicht eingreifen.</summary>
     private static readonly TimeSpan NewWindowGrace = TimeSpan.FromMilliseconds(1500);
 
@@ -112,6 +121,13 @@ internal sealed class WindowTracker : IDisposable
 
     private readonly MonitorManager _monitors;
     private readonly Dictionary<IntPtr, TrackedWindow> _windows = [];
+    /// <summary>
+    /// Geschlossene Fenster je Programm und Fensterklasse. Öffnet das Programm später ein Fenster auf einem anderen
+    /// Monitor und stellt dabei seine alte Größe wieder her, wird es wie ein verschobenes Fenster angepasst.
+    /// </summary>
+    private readonly Dictionary<string, ClosedWindow> _closed = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>Neu geöffnete Fenster, die nach der Schonfrist mit ihrem geschlossenen Vorgänger verglichen werden.</summary>
+    private readonly Dictionary<IntPtr, (DateTime Due, ClosedWindow Closed)> _reopenChecks = [];
     private readonly Dictionary<IntPtr, (DateTime Due, Trigger Trigger)> _pending = [];
     private readonly WinEventDelegate _winEventCallback; // Feld hält den Delegaten vor dem GC fest
     private readonly List<IntPtr> _hooks = [];
@@ -271,7 +287,17 @@ internal sealed class WindowTracker : IDisposable
 
         if (_relayoutPending && now >= _minSettleUntil) SettleAfterDisplayChange(now);
 
-        if (_pending.Count == 0 && !_relayoutPending) _debounceTimer.Stop();
+        // Während einer Anzeigeänderung/Ersatzanzeige warten – danach stimmen Monitor und Arbeitsbereich.
+        if (_reopenChecks.Count > 0 && !Frozen)
+        {
+            foreach (var (hwnd, (_, closed)) in _reopenChecks.Where(p => p.Value.Due <= now).ToList())
+            {
+                _reopenChecks.Remove(hwnd);
+                CheckReopened(hwnd, closed);
+            }
+        }
+
+        if (_pending.Count == 0 && !_relayoutPending && _reopenChecks.Count == 0) _debounceTimer.Stop();
     }
 
     private void BeginMoveSize(IntPtr hwnd)
@@ -284,7 +310,7 @@ internal sealed class WindowTracker : IDisposable
         // Ausgangszustand vor dem Ziehen. Bei angeordneten (Snap) Fenstern und solchen mit voller Höhe
         // bleibt der letzte normale Rahmen.
         bool normal = reason == SkipReason.None && !IsFullHeight(snap, monitor);
-        var tw = GetOrAdd(hwnd, firstSeen: DateTime.MinValue);
+        var tw = GetOrAdd(hwnd, firstSeen: DateTime.MinValue, snap);
         tw.Record(monitor, normal ? snap.FrameRect : null);
         tw.InMoveSize = true;
     }
@@ -308,7 +334,7 @@ internal sealed class WindowTracker : IDisposable
         var reason = WindowInspector.Check(hwnd, _excluded, out var snap);
         if (reason == SkipReason.Invalid)
         {
-            _windows.Remove(hwnd);
+            Forget(hwnd);
             return;
         }
 
@@ -336,9 +362,10 @@ internal sealed class WindowTracker : IDisposable
         var now = DateTime.UtcNow;
         if (!_windows.TryGetValue(hwnd, out var tw))
         {
-            tw = GetOrAdd(hwnd, trigger == Trigger.Snapshot ? DateTime.MinValue : now);
+            tw = GetOrAdd(hwnd, trigger == Trigger.Snapshot ? DateTime.MinValue : now, snap);
             tw.Record(monitor, snap.FrameRect);
             RememberLayout(tw, monitor, snap.FrameRect, maximized: false);
+            if (trigger != Trigger.Snapshot) ScheduleReopenCheck(hwnd, tw, now);
             return;
         }
 
@@ -380,7 +407,7 @@ internal sealed class WindowTracker : IDisposable
     private readonly record struct MonitorChange(string OldMonitorName, Rectangle OldWorkArea, Rectangle OldFrame, double OldScale);
 
     private void OnMonitorChanged(WindowSnapshot window, MonitorChange previous, MonitorDescriptor target,
-        bool byDrag, TrackedWindow tw)
+        bool byDrag, TrackedWindow tw, string note = "")
     {
         bool keepPosition = byDrag && _settings.KeepDropPositionOnDrag;
         Rectangle targetFrame;
@@ -408,7 +435,7 @@ internal sealed class WindowTracker : IDisposable
             return;
         }
 
-        Apply(window, targetFrame, $"{previous.OldMonitorName} → {target.DisplayName}", how, target, tw);
+        Apply(window, targetFrame, $"{previous.OldMonitorName} → {target.DisplayName}{note}", how, target, tw);
     }
 
     /// <summary>
@@ -506,7 +533,7 @@ internal sealed class WindowTracker : IDisposable
             var monitor = _monitors.FromWindow(hwnd);
             if (monitor != null)
             {
-                var tw = GetOrAdd(hwnd, trigger == Trigger.Snapshot ? DateTime.MinValue : DateTime.UtcNow);
+                var tw = GetOrAdd(hwnd, trigger == Trigger.Snapshot ? DateTime.MinValue : DateTime.UtcNow, snap);
                 // Eingefroren (Anzeigeänderung/Ersatzanzeige): Zustand von vorher behalten – Windows staucht beim
                 // Umräumen Fenster auf volle Höhe, das ist kein Andocken durch den Benutzer.
                 if (!Frozen) tw.Record(monitor, frame: null);
@@ -526,14 +553,89 @@ internal sealed class WindowTracker : IDisposable
     private bool IsFullHeight(WindowSnapshot snap, MonitorDescriptor monitor) =>
         _settings.TreatFullHeightAsSnapped && WindowInspector.SpansFullHeight(snap.FrameRect, monitor.WorkArea);
 
-    private TrackedWindow GetOrAdd(IntPtr hwnd, DateTime firstSeen)
+    private TrackedWindow GetOrAdd(IntPtr hwnd, DateTime firstSeen, WindowSnapshot? snap = null)
     {
         if (!_windows.TryGetValue(hwnd, out var tw))
         {
             tw = new TrackedWindow { FirstSeen = firstSeen };
             _windows[hwnd] = tw;
         }
+        if (tw.Identity.Length == 0 && snap != null) tw.Identity = $"{snap.ProcessName}|{snap.ClassName}";
         return tw;
+    }
+
+    /// <summary>Fenster ist geschlossen: letzten normalen Zustand je Programm/Fensterklasse merken.</summary>
+    private void Forget(IntPtr hwnd)
+    {
+        if (!_windows.Remove(hwnd, out var tw)) return;
+        _reopenChecks.Remove(hwnd);
+        if (tw.Identity.Length == 0 || !tw.HasNormalFrame) return;
+
+        _closed.Remove(tw.Identity); // neu einfügen = ans Ende (jüngster Eintrag)
+        _closed[tw.Identity] = new ClosedWindow(tw.MonitorId, tw.MonitorName, tw.Frame, tw.WorkArea, tw.Scale);
+        if (_closed.Count > MaxClosedWindows) _closed.Remove(_closed.Keys.First());
+    }
+
+    /// <summary>
+    /// Neues Fenster eines Programms, dessen Fenster zuvor geschlossen wurde: nach der Schonfrist prüfen, ob es mit der
+    /// alten Größe auf einem anderen Monitor geöffnet wurde (siehe <see cref="CheckReopened"/>).
+    /// </summary>
+    private void ScheduleReopenCheck(IntPtr hwnd, TrackedWindow tw, DateTime now)
+    {
+        if (tw.Identity.Length == 0) return;
+        RemoveDeadWindows(); // gerade geschlossene Fenster sofort übernehmen, nicht erst beim nächsten Aufräumen
+        if (!_closed.Remove(tw.Identity, out var closed)) return;
+        _reopenChecks[hwnd] = (now + NewWindowGrace, closed);
+        if (!_debounceTimer.Enabled) _debounceTimer.Start();
+    }
+
+    /// <summary>
+    /// Passt ein neu geöffnetes Fenster an, wenn das Programm die Größe seines zuletzt geschlossenen Fensters von einem
+    /// anderen Monitor (oder anderer Auflösung) wiederhergestellt hat – ausgehend von dessen Zustand.
+    /// </summary>
+    private void CheckReopened(IntPtr hwnd, ClosedWindow closed)
+    {
+        try
+        {
+            if (!_settings.Enabled || !_windows.TryGetValue(hwnd, out var tw) || tw.InMoveSize) return;
+            var reason = WindowInspector.Check(hwnd, _excluded, out var snap);
+            if (reason != SkipReason.None || snap == null) return;
+            var monitor = _monitors.FromWindow(hwnd);
+            if (monitor == null || WindowInspector.IsFullScreen(snap, monitor.Bounds) || IsFullHeight(snap, monitor)) return;
+
+            bool otherMonitor = !string.Equals(closed.MonitorId, monitor.Key, StringComparison.OrdinalIgnoreCase);
+            if (!otherMonitor && closed.WorkArea == monitor.WorkArea)
+            {
+                // Gleicher Monitor wie beim Schließen – das Programm hat seine Größe selbst richtig wiederhergestellt.
+                Log.Debug($"{snap.Describe()}: neu geöffnet auf {monitor.DisplayName}, dort zuletzt geschlossen – unverändert");
+                return;
+            }
+
+            if (!SizeMatches(snap.FrameRect.Size, closed.Frame.Size, closed.Scale > 0 ? monitor.Scale / closed.Scale : 1.0))
+            {
+                Log.Debug($"{snap.Describe()}: neu geöffnet auf {monitor.DisplayName}, Größe {snap.FrameRect.Width}×{snap.FrameRect.Height} " +
+                          $"passt nicht zum geschlossenen Fenster ({closed.Frame.Width}×{closed.Frame.Height}) – unverändert");
+                return;
+            }
+
+            var previous = new MonitorChange(closed.MonitorName, closed.WorkArea, closed.Frame, closed.Scale);
+            OnMonitorChanged(snap, previous, monitor, byDrag: false, tw, " (neu geöffnet, dort zuletzt geschlossen)");
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"Fehler bei neu geöffnetem Fenster 0x{hwnd.ToInt64():X}", ex);
+        }
+    }
+
+    /// <summary>
+    /// Hat das Programm die alte Größe wiederhergestellt? Gleiche Pixelgröße oder – bei Programmen, die ihre Größe in
+    /// logischen Einheiten speichern – um das Skalierungsverhältnis umgerechnet. Toleranz 2 % (mindestens 8 px).
+    /// </summary>
+    internal static bool SizeMatches(Size actual, Size remembered, double scaleRatio)
+    {
+        static bool Close(int a, double b) => Math.Abs(a - b) <= Math.Max(8, b * 0.02);
+        return (Close(actual.Width, remembered.Width) && Close(actual.Height, remembered.Height)) ||
+               (Close(actual.Width, remembered.Width * scaleRatio) && Close(actual.Height, remembered.Height * scaleRatio));
     }
 
     private void SnapshotAllWindows()
@@ -616,7 +718,7 @@ internal sealed class WindowTracker : IDisposable
             var reason = WindowInspector.Check(hwnd, _excluded, out var snap);
             if (reason == SkipReason.Invalid)
             {
-                _windows.Remove(hwnd);
+                Forget(hwnd);
                 return false;
             }
 
@@ -651,7 +753,7 @@ internal sealed class WindowTracker : IDisposable
 
             if (tw is not { HasNormalFrame: true })
             {
-                GetOrAdd(hwnd, DateTime.MinValue).Record(monitor, snap.FrameRect);
+                GetOrAdd(hwnd, DateTime.MinValue, snap).Record(monitor, snap.FrameRect);
                 return false;
             }
 
@@ -760,7 +862,7 @@ internal sealed class WindowTracker : IDisposable
     private void RemoveDeadWindows()
     {
         foreach (var hwnd in _windows.Keys.Where(h => !IsWindow(h)).ToList())
-            _windows.Remove(hwnd);
+            Forget(hwnd);
     }
 
     // --- Systemereignisse (kommen ggf. auf einem anderen Thread) ---------------------------

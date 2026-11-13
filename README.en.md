@@ -29,6 +29,8 @@ resized by hand every time. LSM Display Resizer does that for you.
   size, maximized windows stay maximized and only switch monitor.
 - Remembers each window's **last normal size** – also across maximizing and snapping. Windows that only fill the full
   screen height (snapped) are treated like maximized ones.
+- **Reopened windows:** when a program window is closed and the program later opens it on another monitor with its old
+  size (e.g. Outlook after undocking), the window is adjusted as if it had been moved there.
 - **Wallpaper across monitors:** one large image is spread seamlessly over all monitors (by physical size via EDID or by
   pixels), recreated automatically when the monitor arrangement changes. Picture-by-picture halves of one monitor are
   detected. The previous wallpaper is backed up and can be restored; if Windows does not accept a new image, the previous
