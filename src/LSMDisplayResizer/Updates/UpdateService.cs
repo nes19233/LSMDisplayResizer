@@ -162,19 +162,37 @@ internal sealed class UpdateService : IDisposable
     /// Startet die Installation in einem eigenen Prozess (die App muss sich danach selbst beenden). Nach der
     /// Installation – auch wenn sie abgebrochen wurde – startet das Skript die App wieder.
     /// </summary>
-    public static void LaunchInstaller(string msiPath)
+    public static void LaunchInstaller(string msiPath, InstallKind kind)
     {
         string exe = Environment.ProcessPath ?? throw new InvalidOperationException("EXE-Pfad unbekannt");
         string dir = Path.GetDirectoryName(msiPath)!;
         string logFile = Path.Combine(dir, "install.log");
         string script = Path.Combine(dir, "update.cmd");
-        // Autostart so lassen, wie der Benutzer ihn eingestellt hat (das MSI würde ihn sonst wieder einschalten).
-        string autostart = Autostart.IsEnabled() ? "1" : "0";
+
+        string body;
+        if (kind == InstallKind.PerMachine)
+        {
+            // Pro Rechner: msiexec mit Administratorrechten (Windows fragt nach). ALLUSERS=1, damit das MSI die
+            // vorhandene Installation für alle Benutzer findet und ersetzt. Autostart wie bisher (HKLM).
+            string args = $"/i \"{msiPath}\" /passive /norestart ALLUSERS=1 " +
+                          $"AUTOSTART={(Autostart.IsEnabledForAllUsers() ? "1" : "0")} /l*v \"{logFile}\"";
+            int pid = StartElevated("msiexec.exe", args);
+            // Das Skript läuft ohne Administratorrechte: wartet auf msiexec und startet die App dann normal neu.
+            // (Warten per ping – "timeout" funktioniert ohne Konsoleneingabe nicht.)
+            body =
+                ":wait\r\n" +
+                $"tasklist /FI \"PID eq {pid}\" /NH | find \" {pid} \" >nul && (ping -n 3 127.0.0.1 >nul & goto wait)\r\n";
+        }
+        else
+        {
+            // Pro Benutzer: Autostart so lassen, wie der Benutzer ihn eingestellt hat (das MSI würde ihn sonst wieder einschalten).
+            body = $"msiexec /i \"{msiPath}\" /passive /norestart AUTOSTART={(Autostart.IsEnabled() ? "1" : "0")} /l*v \"{logFile}\"\r\n";
+        }
 
         File.WriteAllText(script,
             "@echo off\r\n" +
             "chcp 65001 >nul\r\n" +
-            $"msiexec /i \"{msiPath}\" /passive /norestart AUTOSTART={autostart} /l*v \"{logFile}\"\r\n" +
+            body +
             $"start \"\" \"{exe}\"\r\n",
             new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
 
@@ -185,6 +203,23 @@ internal sealed class UpdateService : IDisposable
             WorkingDirectory = dir,
         });
         Log.Info($"Update-Installation gestartet: {msiPath}");
+    }
+
+    /// <summary>Startet ein Programm mit Administratorrechten (UAC-Abfrage). Rückgabe: Prozess-ID.</summary>
+    private static int StartElevated(string file, string arguments)
+    {
+        try
+        {
+            using var process = Process.Start(new ProcessStartInfo(file, arguments) { UseShellExecute = true, Verb = "runas" })
+                                ?? throw new InvalidOperationException(Localization.L.T("Die Installation konnte nicht gestartet werden."));
+            Log.Info($"Installation mit Administratorrechten gestartet (Prozess {process.Id})");
+            return process.Id;
+        }
+        catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223) // ERROR_CANCELLED
+        {
+            Log.Info("Update: Abfrage nach Administratorrechten abgebrochen");
+            throw new InvalidOperationException(Localization.L.T("Die Installation wurde nicht gestartet, weil keine Administratorrechte erteilt wurden."));
+        }
     }
 
     public static void OpenReleasePage(ReleaseInfo? release)

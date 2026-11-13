@@ -254,8 +254,13 @@ internal static class English
         ["Änderungen ansehen und Dateien selbst herunterladen."] = "See what changed and download the files yourself.",
         ["Erinnerung bei der nächsten täglichen Prüfung."] = "Reminder at the next daily check.",
         ["Installiert ist Version {0}."] = "Installed version: {0}.",
-        ["Diese Installation gilt für alle Benutzer des Computers und wird von der IT bzw. einem Administrator aktualisiert."] =
-            "This installation is for all users of the computer and is updated by IT or an administrator.",
+        ["Diese Installation gilt für alle Benutzer des Computers – zum Aktualisieren sind Administratorrechte nötig. Wird sie zentral verteilt (z. B. per Gruppenrichtlinie), dort ebenfalls die neue Version hinterlegen."] =
+            "This installation is for all users of the computer – updating requires administrator rights. If it is deployed centrally (e.g. via Group Policy), provide the new version there as well.",
+        ["Windows fragt nach Administratorrechten. Danach herunterladen, prüfen, installieren und neu starten."] =
+            "Windows asks for administrator rights. Then download, verify, install and restart.",
+        ["Die Installation wurde nicht gestartet, weil keine Administratorrechte erteilt wurden."] =
+            "The installation was not started because administrator rights were not granted.",
+        ["Die Installation konnte nicht gestartet werden."] = "The installation could not be started.",
         ["Diese EXE wurde nicht mit dem Installer installiert – die neue Version gibt es auf der Release-Seite."] =
             "This EXE was not installed with the installer – get the new version from the release page.",
         ["Die Einstellungen bleiben erhalten."] = "Your settings are kept.",

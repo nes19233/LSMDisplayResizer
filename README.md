@@ -78,8 +78,10 @@ msiexec /i LSMDisplayResizer-x.y.z-win-x64-de.msi /qn                          #
 msiexec /x LSMDisplayResizer-x.y.z-win-x64-de.msi /qn                          # deinstallieren
 ```
 
-Auch bei der Installation für alle Benutzer läuft die App selbst im Benutzerkontext (ohne Adminrechte). Sie installiert
-Updates dann nicht selbst, sondern weist nur darauf hin – das Verteilen bleibt Sache der IT. Mit `UPDATECHECK=0` fragt sie
+Auch bei der Installation für alle Benutzer läuft die App selbst im Benutzerkontext (ohne Adminrechte). „Jetzt
+aktualisieren“ fragt dann über Windows nach Administratorrechten und installiert die neue Version für alle Benutzer –
+ohne Adminrechte bleibt es beim Hinweis. Bei zentraler Verteilung (z. B. Gruppenrichtlinie) dort ebenfalls die neue
+Version hinterlegen, sonst versucht die Richtlinie beim Start erneut die alte zu installieren. Mit `UPDATECHECK=0` fragt sie
 gar nicht bei GitHub nach (Registrierungswert `UpdateCheck` = 0 unter `HKLM` bzw. `HKCU\Software\LSM Display Resizer`);
 die Einstellung ist dann in der App gesperrt.
 

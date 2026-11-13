@@ -24,7 +24,9 @@ try {
         -p:PublishSingleFile=true "-p:Version=$Version" -o $publish
     if ($LASTEXITCODE -ne 0) { throw 'dotnet publish fehlgeschlagen' }
 
-    dotnet build installer/LSMDisplayResizer.Installer.wixproj -c Release "-p:Version=$Version" "-p:AppPublishDir=$publish\"
+    # Immer neu bauen: Der inkrementelle Build erkennt eine geänderte Version nicht und lieferte sonst ein altes MSI.
+    foreach ($d in 'installer/bin', 'installer/obj') { if (Test-Path $d) { Remove-Item $d -Recurse -Force } }
+    dotnet build installer/LSMDisplayResizer.Installer.wixproj -c Release --no-incremental "-p:Version=$Version" "-p:AppPublishDir=$publish\"
     if ($LASTEXITCODE -ne 0) { throw 'MSI-Build fehlgeschlagen' }
 
     Copy-Item (Join-Path $publish 'LSMDisplayResizer.exe') (Join-Path $artifacts "LSMDisplayResizer-$Version-win-x64.exe") -Force

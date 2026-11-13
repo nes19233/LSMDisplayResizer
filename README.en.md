@@ -68,8 +68,10 @@ msiexec /i LSMDisplayResizer-x.y.z-win-x64-en.msi ALLUSERS=1 UPDATECHECK=0 /qn #
 msiexec /x LSMDisplayResizer-x.y.z-win-x64-en.msi /qn                          # uninstall
 ```
 
-The app itself always runs in the user context. With a per-machine installation it does not install updates itself but
-only points them out – deployment stays with IT. With `UPDATECHECK=0` it never contacts GitHub (registry value
+The app itself always runs in the user context. With a per-machine installation, "Update now" asks Windows for
+administrator rights and installs the new version for all users – without administrator rights it remains a hint. With
+central deployment (e.g. Group Policy) provide the new version there too, otherwise the policy tries to reinstall the old
+one at startup. With `UPDATECHECK=0` it never contacts GitHub (registry value
 `UpdateCheck` = 0 under `HKLM` or `HKCU\Software\LSM Display Resizer`); the setting is then locked in the app.
 
 The files are not signed: SmartScreen may warn on download, and

@@ -59,21 +59,27 @@ internal static class UpdatePrompt
 
     internal sealed record MainPage(TaskDialogPage Page, TaskDialogButton Update, TaskDialogButton ReleasePage, TaskDialogButton Later);
 
-    /// <summary>Hinweisseite. "Jetzt aktualisieren" nur bei einer Installation pro Benutzer.</summary>
+    /// <summary>
+    /// Hinweisseite. "Jetzt aktualisieren" bei Installationen mit dem MSI – pro Rechner mit Windows-Abfrage nach
+    /// Administratorrechten (Schild-Symbol). Portable EXE: nur Release-Seite.
+    /// </summary>
     internal static MainPage BuildMainPage(ReleaseInfo release, InstallKind kind)
     {
         // Alle als Befehlslinks (keine Mischung mit eigenen Schaltflächen, siehe oben).
         var update = new TaskDialogCommandLinkButton(L.T("Jetzt aktualisieren"),
-            L.T("Herunterladen, Prüfsumme prüfen, installieren und neu starten (dauert etwa eine Minute)."))
+            kind == InstallKind.PerMachine
+                ? L.T("Windows fragt nach Administratorrechten. Danach herunterladen, prüfen, installieren und neu starten.")
+                : L.T("Herunterladen, Prüfsumme prüfen, installieren und neu starten (dauert etwa eine Minute)."))
         {
             AllowCloseDialog = false,
+            ShowShieldIcon = kind == InstallKind.PerMachine,
         };
         var page = new TaskDialogCommandLinkButton(L.T("Release-Seite öffnen"), L.T("Änderungen ansehen und Dateien selbst herunterladen."));
         var later = new TaskDialogCommandLinkButton(L.T("Später"), L.T("Erinnerung bei der nächsten täglichen Prüfung."));
 
         string text = L.F("Installiert ist Version {0}.", AppInfo.Version) + " " + kind switch
         {
-            InstallKind.PerMachine => L.T("Diese Installation gilt für alle Benutzer des Computers und wird von der IT bzw. einem Administrator aktualisiert."),
+            InstallKind.PerMachine => L.T("Diese Installation gilt für alle Benutzer des Computers – zum Aktualisieren sind Administratorrechte nötig. Wird sie zentral verteilt (z. B. per Gruppenrichtlinie), dort ebenfalls die neue Version hinterlegen."),
             InstallKind.Portable => L.T("Diese EXE wurde nicht mit dem Installer installiert – die neue Version gibt es auf der Release-Seite."),
             _ => L.T("Die Einstellungen bleiben erhalten."),
         };
@@ -86,7 +92,7 @@ internal static class UpdatePrompt
             Icon = TaskDialogIcon.Information,
             AllowCancel = true,
         };
-        if (kind == InstallKind.PerUser) main.Buttons.Add(update);
+        if (kind != InstallKind.Portable) main.Buttons.Add(update);
         main.Buttons.Add(page);
         main.Buttons.Add(later);
         return new MainPage(main, update, page, later);
@@ -136,7 +142,7 @@ internal static class UpdatePrompt
         main.Update.Click += (_, _) =>
         {
             Log.Info($"Update auf {release.Version}: Download gestartet");
-            StartDownload(main.Page, release, () => exit = true);
+            StartDownload(main.Page, release, kind, () => exit = true);
         };
 
         Log.Info($"Update-Hinweis für {release.Version} angezeigt ({kind})");
@@ -146,7 +152,7 @@ internal static class UpdatePrompt
         if (exit) exitApp();
     }
 
-    private static void StartDownload(TaskDialogPage main, ReleaseInfo release, Action markExit)
+    private static void StartDownload(TaskDialogPage main, ReleaseInfo release, InstallKind kind, Action markExit)
     {
         var cts = new CancellationTokenSource();
         var progressPage = BuildProgressPage(release, out var cancel);
@@ -164,7 +170,7 @@ internal static class UpdatePrompt
                 });
                 string msi = await UpdateService.DownloadAsync(release, progress, cts.Token);
                 cts.Token.ThrowIfCancellationRequested();
-                UpdateService.LaunchInstaller(msi);
+                UpdateService.LaunchInstaller(msi, kind);
                 markExit();
                 progressPage.BoundDialog?.Close();
             }
