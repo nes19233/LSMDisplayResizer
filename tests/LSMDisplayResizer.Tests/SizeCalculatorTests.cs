@@ -5,56 +5,81 @@ namespace LSMDisplayResizer.Tests;
 
 public class SizeCalculatorTests
 {
-    [Fact]
-    public void ScaleUniform_KeepsAspectRatio_WinBoxExample()
-    {
-        // Hälfte eines Dell U3425WE (1720×1392 Arbeitsbereich, 100 %) → Notebook-OLED 2880×1716 bei 175 %
-        var result = SizeCalculator.ScaleUniform(new Size(1535, 842), new Size(1720, 1392), new Size(2880, 1716), 0.67, 1.0, 1.75);
+    // Hälfte eines Dell U3425WE (Arbeitsbereich 1720×1392, 100 %) und Notebook-OLED (2880×1716, 175 %)
+    private static readonly Size DellHalf = new(1720, 1392);
+    private static readonly Size Oled = new(2880, 1716);
 
-        Assert.Equal(1535.0 / 842, (double)result.Width / result.Height, 2);
-        Assert.InRange(result.Width, 2300, 2400); // statt 2570×1165 ohne festes Seitenverhältnis
-        Assert.InRange(result.Height, 1260, 1320);
+    [Fact]
+    public void ScaleByWidth_KeepsWidthShareAndAspectRatio_WinBoxExample()
+    {
+        var result = SizeCalculator.ScaleByWidth(new Size(1535, 842), DellHalf, Oled);
+
+        Assert.Equal(new Size(2570, 1410), result);   // 89,2 % der Breite, Höhe folgt der Form 1535 : 842
     }
 
     [Fact]
-    public void ScaleUniform_ChangeOnOtherMonitorIsKept()
+    public void ScaleByWidth_ChangeOnOtherMonitorIsKept()
     {
-        // WinBox auf dem Notebook von Hand auf 2383×1334 vergrößert, dann zurück auf die Dell-Hälfte: ausgehend von
-        // dieser Größe umgerechnet (nicht die alte Dell-Größe 1535×842 wiederhergestellt).
-        var result = SizeCalculator.ScaleUniform(new Size(2383, 1334), new Size(2880, 1716), new Size(1720, 1392), 0.67, 1.75, 1.0);
-        Assert.InRange(result.Width, 1552, 1556);
-        Assert.InRange(result.Height, 868, 872);
+        // WinBox auf dem Notebook von Hand auf 2383×1334 gebracht, zurück auf die Dell-Hälfte: von dieser Größe aus.
+        var result = SizeCalculator.ScaleByWidth(new Size(2383, 1334), Oled, DellHalf);
+
+        Assert.Equal(1423, result.Width);
+        Assert.InRange(result.Height, 796, 798);
+    }
+
+    [Theory]
+    [InlineData(1535, 842)]
+    [InlineData(1200, 600)]
+    [InlineData(400, 300)]
+    public void ScaleByWidth_RoundTripReturnsOriginal(int w, int h)
+    {
+        var there = SizeCalculator.ScaleByWidth(new Size(w, h), DellHalf, Oled);
+        var back = SizeCalculator.ScaleByWidth(there, Oled, DellHalf, (double)w / h);
+
+        Assert.InRange(back.Width, w - 1, w + 1);
+        Assert.InRange(back.Height, h - 1, h + 1);
     }
 
     [Fact]
-    public void ScaleUniform_RoundTripReturnsOriginal()
+    public void ScaleByWidth_TooTall_OnlyHeightIsCut()
     {
-        var a = new Size(1720, 1392);
-        var b = new Size(2880, 1716);
-        var there = SizeCalculator.ScaleUniform(new Size(1200, 800), a, b, 0.67, 1.0, 1.75);
-        var back = SizeCalculator.ScaleUniform(there, b, a, 0.67, 1.75, 1.0);
+        // Browser 1200×1300 auf der Dell-Hälfte: auf dem Notebook wären es 2009×2177 – höher als der Bildschirm.
+        var result = SizeCalculator.ScaleByWidth(new Size(1200, 1300), DellHalf, Oled);
 
-        Assert.InRange(back.Width, 1198, 1202);
-        Assert.InRange(back.Height, 798, 802);
+        Assert.Equal(new Size(2009, 1716), result);
+        Assert.True(SizeCalculator.AspectDiffers(result, 1200.0 / 1300));
     }
 
     [Fact]
-    public void ScaleUniform_ShrinksToFitWithSameShape()
+    public void ScaleByWidth_AfterCut_RememberedAspectRestoresOriginalShape()
     {
-        // Sehr breites Fenster auf einen kleinen Bildschirm: passt nicht → gleichmäßig verkleinert, Form bleibt
-        var result = SizeCalculator.ScaleUniform(new Size(3000, 1000), new Size(3440, 1392), new Size(1280, 984), 1.0);
+        double original = 1200.0 / 1300;
+        var cut = SizeCalculator.ScaleByWidth(new Size(1200, 1300), DellHalf, Oled);
 
-        Assert.True(result.Width <= 1280 && result.Height <= 984);
-        Assert.Equal(3.0, (double)result.Width / result.Height, 1);
+        var withoutMemory = SizeCalculator.ScaleByWidth(cut, Oled, DellHalf);
+        var withMemory = SizeCalculator.ScaleByWidth(cut, Oled, DellHalf, original);
+
+        Assert.InRange(withoutMemory.Height, 1020, 1030);   // gekürzte Form
+        Assert.Equal(1200, withMemory.Width);
+        Assert.InRange(withMemory.Height, 1299, 1301);      // ursprüngliche Form
     }
 
     [Fact]
-    public void ScaleUniform_FactorZero_KeepsVisibleSize()
+    public void ScaleByWidth_IgnoresDisplayScaling()
     {
-        // 0 %: sichtbare Größe gleich – bei doppelter Skalierung doppelt so viele Pixel
-        var result = SizeCalculator.ScaleUniform(new Size(800, 600), new Size(1920, 1040), new Size(2880, 1752), 0, 1.0, 2.0);
+        // Gleiche Anteile, egal wie die Monitore skaliert sind: 50 % Breite bleibt 50 % Breite.
+        var result = SizeCalculator.ScaleByWidth(new Size(960, 540), new Size(1920, 1040), new Size(2880, 1716));
+        Assert.Equal(new Size(1440, 810), result);
+    }
 
-        Assert.Equal(new Size(1600, 1200), result);
+    [Fact]
+    public void Percent_KeepAspectRatio_UsesWidthShare()
+    {
+        var oldFrame = new Rectangle(192, 104, 1152, 520);   // 60 % der Breite von A
+        var result = SizeCalculator.Percent(WorkA, oldFrame, WorkB, oldFrame, keepCurrentPosition: false,
+            heightScaling: 2.0 / 3, keepAspectRatio: true);
+
+        Assert.Equal(new Size(2304, 1040), result.Size);     // 60 % von 3840, Höhe aus 1152 : 520
     }
 
     // Monitor A: Full HD mit Taskleiste unten (Arbeitsbereich 1920×1040)

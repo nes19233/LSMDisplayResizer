@@ -107,9 +107,9 @@ internal sealed class SettingsForm : Form
             hint: true, indent: 20));
         _chkKeepAspect = Ui.Check("Seitenverhältnis der Fenster beibehalten", indent: 20);
         Ui.AddRow(general, _chkKeepAspect);
-        Ui.AddRow(general, Ui.Text("Breite und Höhe ändern sich gleich stark – das Fenster behält seine Form, auch wenn die Monitore " +
-                                   "unterschiedlich geformt sind (z. B. fast quadratische Hälfte eines Ultrawide-Monitors → 16:10-Notebook). " +
-                                   "Der Wert oben gilt dann für die Größe insgesamt. Ohne Häkchen skaliert die Breite voll mit, nur die Höhe gedämpft.",
+        Ui.AddRow(general, Ui.Text("Die Breite behält ihren Anteil an der Bildschirmbreite, die Höhe folgt der Form des Fensters. " +
+                                   "Reicht die Höhe des Bildschirms nicht, wird nur die Höhe gekürzt – beim nächsten Wechsel bekommt " +
+                                   "das Fenster seine ursprüngliche Form zurück. „Höhe mitskalieren“ gilt nur ohne Häkchen.",
             hint: true, indent: 40));
         _radRules = Ui.Radio("Feste Regeln");
         Ui.AddRow(general, _radRules);
@@ -374,6 +374,7 @@ internal sealed class SettingsForm : Form
         _radPercent.CheckedChanged += (_, _) => UpdateModeDependentControls();
         _radRules.CheckedChanged += (_, _) => UpdateModeDependentControls();
         _chkFallback.CheckedChanged += (_, _) => UpdateModeDependentControls();
+        _chkKeepAspect.CheckedChanged += (_, _) => UpdateModeDependentControls();
         _chkHotkey.CheckedChanged += (_, _) => _txtHotkey.Enabled = _chkHotkey.Checked;
 
         LoadValues();
@@ -436,8 +437,8 @@ internal sealed class SettingsForm : Form
     {
         _chkFallback.Enabled = _radRules.Checked;
         // Gilt für den Prozentual-Modus und für die prozentuale Anpassung ohne passende Regel.
-        _numHeightScaling.Enabled = _radPercent.Checked || _chkFallback.Checked;
-        _chkKeepAspect.Enabled = _numHeightScaling.Enabled;
+        _chkKeepAspect.Enabled = _radPercent.Checked || _chkFallback.Checked;
+        _numHeightScaling.Enabled = _chkKeepAspect.Enabled && !_chkKeepAspect.Checked;
         _lblRulesModeHint.Text = _radRules.Checked
             ? string.Empty
             : L.T("Modus ist „Prozentual“: Die Regeln werden derzeit nur für das Tastenkürzel verwendet.");

@@ -15,8 +15,9 @@ internal sealed class AppSettings
     public int PercentHeightScaling { get; set; } = 67;
 
     /// <summary>
-    /// Prozentual: Seitenverhältnis des Fensters beibehalten – Breite und Höhe ändern sich gleich stark
-    /// (gedämpft mit <see cref="PercentHeightScaling"/>). Bei false: Breite voll proportional, nur die Höhe gedämpft.
+    /// Prozentual: Seitenverhältnis des Fensters beibehalten – die Breite behält ihren Anteil an der Bildschirmbreite,
+    /// die Höhe folgt; nur wenn der Bildschirm nicht hoch genug ist, wird die Höhe gekürzt (<see cref="PercentHeightScaling"/>
+    /// gilt dann nicht). Bei false: Breite voll proportional, nur die Höhe gedämpft.
     /// </summary>
     public bool PercentKeepAspectRatio { get; set; } = true;
 

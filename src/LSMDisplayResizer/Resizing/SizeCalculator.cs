@@ -25,18 +25,21 @@ internal static class SizeCalculator
     /// 0 = sichtbare Höhe bleibt gleich, dazwischen gedämpft (siehe <see cref="ScaleHeight"/>).</param>
     /// <param name="oldScale">Anzeigeskalierung des alten Monitors (1,0 = 100 %).</param>
     /// <param name="newScale">Anzeigeskalierung des neuen Monitors.</param>
-    /// <param name="keepAspectRatio">true: Breite und Höhe gleich stark skalieren, das Fenster behält seine Form
-    /// (siehe <see cref="ScaleUniform"/>); false: Breite voll proportional, Höhe gedämpft.</param>
+    /// <param name="keepAspectRatio">true: Breite behält ihren Anteil an der Bildschirmbreite, die Höhe folgt dem
+    /// Seitenverhältnis (siehe <see cref="ScaleByWidth"/>, <paramref name="heightScaling"/> gilt dann nicht);
+    /// false: Breite voll proportional, Höhe gedämpft.</param>
+    /// <param name="aspect">Seitenverhältnis (Breite ÷ Höhe), das das Fenster bekommen soll; null = das von
+    /// <paramref name="oldFrame"/>. Nach einer gekürzten Höhe ist das die ursprüngliche Form.</param>
     public static Rectangle Percent(Rectangle oldWork, Rectangle oldFrame, Rectangle newWork, Rectangle currentFrame,
         bool keepCurrentPosition, double heightScaling = 1.0, double oldScale = 1.0, double newScale = 1.0,
-        bool keepAspectRatio = false)
+        bool keepAspectRatio = false, double? aspect = null)
     {
         if (oldWork.Width <= 0 || oldWork.Height <= 0) return ClampToWorkArea(currentFrame, newWork);
 
         Size size;
         if (keepAspectRatio)
         {
-            size = ScaleUniform(oldFrame.Size, oldWork.Size, newWork.Size, heightScaling, oldScale, newScale);
+            size = ScaleByWidth(oldFrame.Size, oldWork.Size, newWork.Size, aspect);
         }
         else
         {
@@ -53,28 +56,30 @@ internal static class SizeCalculator
     }
 
     /// <summary>
-    /// Gleichmäßige Skalierung mit festem Seitenverhältnis, gerechnet in <b>sichtbarer</b> Größe (Pixel ÷ Skalierung).
-    /// Maßstab = (Flächenverhältnis der sichtbaren Arbeitsbereiche) ^ (Faktor / 2): Faktor 1 = Fensterfläche wächst
-    /// bzw. schrumpft im selben Verhältnis wie der Arbeitsbereich, 0 = sichtbare Größe bleibt gleich. Passt das
-    /// Ergebnis nicht in den Arbeitsbereich, wird es – weiter mit gleicher Form – so weit verkleinert, dass es passt.
-    /// Wie bei <see cref="ScaleHeight"/> landet ein Fenster nach A → B → A wieder bei seiner Ausgangsgröße (solange es passt).
+    /// Seitenverhältnis beibehalten: Die Breite behält ihren Anteil an der Breite des Arbeitsbereichs (60 % → 60 %), die
+    /// Höhe ergibt sich aus dem Seitenverhältnis. Reicht die Höhe des Arbeitsbereichs nicht, wird nur die Höhe gekürzt.
+    /// Unabhängig von der Anzeigeskalierung, da nur Anteile am selben Monitor verglichen werden. Hin und zurück ergibt
+    /// wieder die Ausgangsgröße – nach einer gekürzten Höhe nur, wenn die ursprüngliche Form als
+    /// <paramref name="aspect"/> mitgegeben wird.
     /// </summary>
-    public static Size ScaleUniform(Size frame, Size oldWork, Size newWork, double factor,
-        double oldScale = 1.0, double newScale = 1.0)
+    /// <param name="aspect">Gewünschtes Seitenverhältnis (Breite ÷ Höhe); null = das von <paramref name="frame"/>.</param>
+    public static Size ScaleByWidth(Size frame, Size oldWork, Size newWork, double? aspect = null)
     {
-        if (oldWork.Width <= 0 || oldWork.Height <= 0 || newWork.Width <= 0 || newWork.Height <= 0) return frame;
-        if (oldScale <= 0) oldScale = 1.0;
-        if (newScale <= 0) newScale = 1.0;
-        factor = Math.Clamp(factor, 0, 1);
+        if (oldWork.Width <= 0 || newWork.Width <= 0 || newWork.Height <= 0 || frame.Width <= 0 || frame.Height <= 0)
+            return frame;
+        double ratio = aspect is > 0 and var a ? a : AspectOf(frame);
 
-        double ratioW = (newWork.Width / newScale) / (oldWork.Width / oldScale);
-        double ratioH = (newWork.Height / newScale) / (oldWork.Height / oldScale);
-        double scale = (newScale / oldScale) * Math.Pow(ratioW * ratioH, factor / 2);
-
-        double w = frame.Width * scale, h = frame.Height * scale;
-        double fit = Math.Min(1.0, Math.Min(newWork.Width / w, newWork.Height / h)); // passt nicht → gleichmäßig verkleinern
-        return new Size(Round(w * fit), Round(h * fit));
+        double w = Math.Min((double)frame.Width / oldWork.Width * newWork.Width, newWork.Width);
+        double h = Math.Min(w / ratio, newWork.Height);
+        return new Size(Round(w), Round(h));
     }
+
+    /// <summary>Seitenverhältnis Breite ÷ Höhe (1, wenn die Höhe 0 ist).</summary>
+    public static double AspectOf(Size size) => size.Height > 0 ? (double)size.Width / size.Height : 1.0;
+
+    /// <summary>Weicht die Form von <paramref name="size"/> um mehr als 2 % vom Seitenverhältnis ab (Höhe gekürzt)?</summary>
+    public static bool AspectDiffers(Size size, double aspect) =>
+        aspect > 0 && size.Height > 0 && Math.Abs(AspectOf(size) - aspect) / aspect > 0.02;
 
     /// <summary>
     /// Gedämpfte Höhenskalierung, gerechnet in <b>sichtbarer</b> Größe (Pixel ÷ Skalierung): Ein Laptop-Display mit

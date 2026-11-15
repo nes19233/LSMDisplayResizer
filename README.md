@@ -21,7 +21,7 @@ oft zu groß oder zu klein und muss jedes Mal von Hand neu aufgezogen werden. LS
 
 | Modus | Verhalten |
 |---|---|
-| **Prozentual** (Standard) | Größe und Position werden relativ zum Arbeitsbereich (Bildschirm ohne Taskleiste) übertragen, gedämpft (einstellbar, Standard 67 %: etwa zwei Drittel der Änderung; hin und zurück ergibt wieder die Ausgangsgröße). Standardmäßig behält das Fenster dabei sein **Seitenverhältnis** – auch zwischen unterschiedlich geformten Monitoren (z. B. Ultrawide-Hälfte → 16:10-Notebook). Ohne diese Option: 60 % Breite auf Monitor A → 60 % Breite auf Monitor B, nur die Höhe gedämpft. |
+| **Prozentual** (Standard) | Größe und Position werden relativ zum Arbeitsbereich (Bildschirm ohne Taskleiste) übertragen. Standardmäßig behält das Fenster sein **Seitenverhältnis**: Die Breite behält ihren Anteil an der Bildschirmbreite (60 % auf Monitor A → 60 % auf Monitor B), die Höhe folgt der Form des Fensters. Ist der neue Bildschirm dafür nicht hoch genug, wird nur die Höhe gekürzt; beim nächsten Wechsel bekommt das Fenster seine ursprüngliche Form zurück (solange du die Größe nicht selbst änderst). Hin und zurück ergibt wieder die Ausgangsgröße. Ohne diese Option: Breite wie oben, die Höhe gedämpft (einstellbar, Standard 67 %: etwa zwei Drittel der Änderung; unterschiedliche Skalierung wird berücksichtigt). |
 | **Feste Regeln** | Pro Programm (Prozessname) und Monitor wird eine Zielgröße festgelegt, wahlweise in Prozent des Arbeitsbereichs oder in Pixeln. Optional werden Fenster ohne Regel prozentual angepasst. |
 
 Außerdem:

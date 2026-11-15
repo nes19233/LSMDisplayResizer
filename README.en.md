@@ -17,10 +17,12 @@ resized by hand every time. LSM Display Resizer does that for you.
 - Detects when a window lands on another monitor: after dragging with the mouse, with **Win + Shift + Arrow**, or when a
   program moves its own window.
 - Two modes:
-  - **Percentage** (default): size and position are transferred relative to the work area (screen without taskbar),
-    damped (default 67 %); different display scaling (e.g. laptop 200 %, monitor 100 %) is taken into account. By
-    default the window keeps its **aspect ratio**, even between differently shaped monitors (e.g. ultrawide half →
-    16:10 laptop). Without that option: 60 % width on monitor A → 60 % width on monitor B, only the height is damped.
+  - **Percentage** (default): size and position are transferred relative to the work area (screen without taskbar).
+    By default the window keeps its **aspect ratio**: the width keeps its share of the screen width (60 % on monitor A
+    → 60 % on monitor B) and the height follows the window's shape. If the new screen is not tall enough, only the
+    height is shortened; on the next change the window gets its original shape back (as long as you don't resize it
+    yourself). Without that option: width as above, height damped (default 67 %; different display scaling is taken
+    into account).
   - **Fixed rules**: a target size per program and monitor, in percent or pixels.
 - **Docking/undocking:** after Windows has rearranged the windows, the app adjusts each moved window as soon as it stops
   moving (usually after 2–3 seconds), based on its state before the change. The 1024×768 placeholder display Windows
