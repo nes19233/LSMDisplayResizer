@@ -202,12 +202,14 @@ Tastatur/Programm, bevor geprüft wird.
   worden.
 - **Anordnung pro Monitorkonstellation:** Die App merkt sich für jede Kombination angeschlossener Monitore (erkannt an
   der EDID-Seriennummer, weil Windows Geräte-IDs beim Andocken oft neu vergibt), auf welchem Monitor jedes Fenster lag. Wechselt man z. B. vom Laptop allein wieder auf Laptop + zwei
-  Monitore, kommt jedes Fenster auf seinen Monitor zurück – normale Fenster exakt mit Position und Größe, **maximierte**
-  Fenster bleiben maximiert und wechseln nur den Monitor. In einer noch unbekannten Konstellation greift das prozentuale
-  Umrechnen (nur für normale Fenster). Das Gedächtnis gilt für Fenster, die zwischendurch geöffnet bleiben, und geht beim
+  Monitore, kommt jedes Fenster auf seinen Monitor zurück. Gemerkt wird nur der Monitor: Größe und Position normaler
+  Fenster werden wie bei jedem Monitorwechsel vom letzten nicht-maximierten Zustand aus umgerechnet – eine Änderung auf dem
+  anderen Monitor bleibt also erhalten. **Maximierte** Fenster bleiben maximiert und wechseln nur den Monitor. In einer
+  noch unbekannten Konstellation bleibt jedes Fenster auf dem Monitor, auf den Windows es gelegt hat, und wird dort
+  umgerechnet. Das Gedächtnis gilt für Fenster, die zwischendurch geöffnet bleiben, und geht beim
   Beenden der App verloren. Abschaltbar unter Allgemein → Verhalten.
   Hinweis: Windows 11 hat unter *System → Anzeige → Mehrere Bildschirme* eine ähnliche Option („Fensterpositionen
-  basierend auf der Monitorverbindung speichern“); beide stören sich nicht – stimmt die Position schon, tut die App nichts.
+  basierend auf der Monitorverbindung speichern“); beide stören sich nicht – die App rechnet danach wie beschrieben vom letzten nicht-maximierten Zustand aus um.
 - **Angeordnete (Snap-)Fenster** bleiben unangetastet, solange sie angeordnet sind.
 - Im Modus *Prozentual* bewirkt das Tastenkürzel ohne passende feste Regel nur ein Einpassen in den Arbeitsbereich.
 - Fenster ohne veränderbaren Rahmen (z. B. feste Dialoge) werden nicht angepasst. Warum ein Fenster ignoriert wurde,

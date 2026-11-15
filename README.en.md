@@ -26,8 +26,9 @@ resized by hand every time. LSM Display Resizer does that for you.
   moving (usually after 2–3 seconds), based on its state before the change. The 1024×768 placeholder display Windows
   briefly activates when you unplug with the lid closed is skipped: windows are adjusted on the next real monitor.
 - **Layout per monitor setup:** for every combination of connected monitors (recognized by EDID serial number, since Windows often assigns new device IDs when docking) the app remembers
-  which monitor each window was on. When you return to a known setup, windows go back – normal windows with position and
-  size, maximized windows stay maximized and only switch monitor.
+  which monitor each window was on. When you return to a known setup, windows go back to that monitor. Only the monitor is
+  remembered: size and position of normal windows are converted from their last non-maximized state, as with any monitor
+  change, so a change made on the other monitor is kept. Maximized windows stay maximized and only switch monitor.
 - Remembers each window's **last normal size** – also across maximizing and snapping. Windows that only fill the full
   screen height (snapped) are treated like maximized ones.
 - **Reopened windows:** when a program window is closed and the program later opens it on another monitor with its old

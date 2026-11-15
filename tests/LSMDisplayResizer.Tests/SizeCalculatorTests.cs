@@ -17,6 +17,16 @@ public class SizeCalculatorTests
     }
 
     [Fact]
+    public void ScaleUniform_ChangeOnOtherMonitorIsKept()
+    {
+        // WinBox auf dem Notebook von Hand auf 2383×1334 vergrößert, dann zurück auf die Dell-Hälfte: ausgehend von
+        // dieser Größe umgerechnet (nicht die alte Dell-Größe 1535×842 wiederhergestellt).
+        var result = SizeCalculator.ScaleUniform(new Size(2383, 1334), new Size(2880, 1716), new Size(1720, 1392), 0.67, 1.75, 1.0);
+        Assert.InRange(result.Width, 1552, 1556);
+        Assert.InRange(result.Height, 868, 872);
+    }
+
+    [Fact]
     public void ScaleUniform_RoundTripReturnsOriginal()
     {
         var a = new Size(1720, 1392);

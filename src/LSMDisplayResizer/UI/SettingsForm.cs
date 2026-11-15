@@ -129,11 +129,11 @@ internal sealed class SettingsForm : Form
                                    "maximieren. Solche Fenster werden dann wie maximierte behandelt: Ihre Größe wird nicht gemerkt, es gilt " +
                                    "weiter die letzte normale Größe.", hint: true, indent: 20));
 
-        _chkRestoreLayout = Ui.Check("Fensteranordnung pro Monitorkonstellation merken und wiederherstellen");
+        _chkRestoreLayout = Ui.Check("Monitor jedes Fensters pro Monitorkonstellation merken");
         Ui.AddRow(general, _chkRestoreLayout);
         Ui.AddRow(general, Ui.Text("Wechselt man z. B. vom Laptop allein wieder auf Laptop + zwei Monitore, kommt jedes Fenster auf den " +
-                                   "Monitor zurück, auf dem es in dieser Konstellation zuletzt war – normale Fenster mit Position und Größe, " +
-                                   "maximierte bleiben maximiert. Monitore werden an ihrer Seriennummer erkannt. Gilt für Fenster, die zwischendurch " +
+                                   "Monitor zurück, auf dem es in dieser Konstellation zuletzt war. Die Größe wird dabei wie bei jedem " +
+                                   "Monitorwechsel vom letzten nicht-maximierten Zustand aus umgerechnet, maximierte bleiben maximiert. Monitore werden an ihrer Seriennummer erkannt. Gilt für Fenster, die zwischendurch " +
                                    "geöffnet bleiben.", hint: true, indent: 20));
 
         var dockRow = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = Padding.Empty };

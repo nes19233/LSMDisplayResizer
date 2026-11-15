@@ -37,7 +37,7 @@ internal static class English
         ["Verhalten"] = "Behavior",
         ["Beim Ziehen mit der Maus die Ablageposition beibehalten"] = "Keep drop position when dragging with the mouse",
         ["Fenster mit voller Bildschirmhöhe wie angedockte behandeln"] = "Treat full-height windows like snapped windows",
-        ["Fensteranordnung pro Monitorkonstellation merken und wiederherstellen"] = "Remember and restore window layout per monitor setup",
+        ["Monitor jedes Fensters pro Monitorkonstellation merken"] = "Remember each window's monitor per monitor setup",
         ["Nach An-/Abdocken und Monitorwechseln Fenster anpassen, höchstens warten:"] = "Adjust windows after docking/undocking and monitor changes, wait at most:",
         ["Sekunden"] = "seconds",
         ["Tastenkürzel für das aktive Fenster:"] = "Hotkey for the active window:",
@@ -213,8 +213,8 @@ internal static class English
             "Only the size changes; the top-left corner stays where the window was dropped. With Win+Shift+Arrow the position is always transferred relatively.",
         ["Windows zieht angedockte Fenster (z. B. linke Bildschirmhälfte) oft nur auf volle Höhe, statt sie zu maximieren. Solche Fenster werden dann wie maximierte behandelt: Ihre Größe wird nicht gemerkt, es gilt weiter die letzte normale Größe."] =
             "Windows often only stretches snapped windows (e.g. left half of the screen) to full height instead of maximizing them. Such windows are then treated like maximized ones: their size is not remembered, the last normal size still applies.",
-        ["Wechselt man z. B. vom Laptop allein wieder auf Laptop + zwei Monitore, kommt jedes Fenster auf den Monitor zurück, auf dem es in dieser Konstellation zuletzt war – normale Fenster mit Position und Größe, maximierte bleiben maximiert. Monitore werden an ihrer Seriennummer erkannt. Gilt für Fenster, die zwischendurch geöffnet bleiben."] =
-            "When switching e.g. from the laptop alone back to laptop + two monitors, every window returns to the monitor it was last on in that setup – normal windows with position and size, maximized ones stay maximized. Monitors are recognized by their serial number. Applies to windows that stay open in between.",
+        ["Wechselt man z. B. vom Laptop allein wieder auf Laptop + zwei Monitore, kommt jedes Fenster auf den Monitor zurück, auf dem es in dieser Konstellation zuletzt war. Die Größe wird dabei wie bei jedem Monitorwechsel vom letzten nicht-maximierten Zustand aus umgerechnet, maximierte bleiben maximiert. Monitore werden an ihrer Seriennummer erkannt. Gilt für Fenster, die zwischendurch geöffnet bleiben."] =
+            "When switching e.g. from the laptop alone back to laptop + two monitors, every window returns to the monitor it was last on in that setup. Its size is converted from its last non-maximized state, as with any monitor change; maximized windows stay maximized. Monitors are recognized by their serial number. Applies to windows that stay open in between.",
         ["Wird z. B. der Laptop von der Dockingstation abgezogen, räumt Windows die Fenster auf die verbliebenen Monitore um. Sobald ein Fenster nicht mehr bewegt wird, passt die App es ausgehend von seinem Zustand vorher an, sodass Position und Größenverhältnis wieder stimmen – meist nach 2–3 Sekunden. Die Höchstdauer greift nur, wenn Windows nicht zur Ruhe kommt."] =
             "When e.g. the laptop is undocked, Windows moves the windows to the remaining monitors. As soon as a window stops moving, the app adjusts it based on its previous state so that position and proportions are right again – usually after 2–3 seconds. The maximum only applies if Windows does not settle.",
         ["In das Feld klicken und die Tastenkombination drücken (z. B. Strg + Alt + R). Wendet eine passende feste Regel an, sonst wird das Fenster in den Arbeitsbereich eingepasst."] =

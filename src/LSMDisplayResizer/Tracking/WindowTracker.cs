@@ -88,12 +88,13 @@ internal sealed class WindowTracker : IDisposable
         }
     }
 
-    /// <summary>Anordnung eines Fensters in einer Monitorkonstellation.</summary>
+    /// <summary>
+    /// Monitor eines Fensters in einer Monitorkonstellation. Bewusst ohne Größe: Die wird immer vom letzten
+    /// nicht-maximierten Zustand aus umgerechnet.
+    /// </summary>
     /// <param name="MonitorId">Monitor, auf dem das Fenster lag.</param>
-    /// <param name="Frame">Sichtbarer Rahmen (bei maximierten Fenstern ohne Bedeutung).</param>
-    /// <param name="WorkArea">Arbeitsbereich des Monitors beim Merken.</param>
-    /// <param name="Maximized">Fenster war maximiert – dann wird nur der Monitor wiederhergestellt.</param>
-    private readonly record struct LayoutEntry(string MonitorId, string MonitorName, Rectangle Frame, Rectangle WorkArea, bool Maximized);
+    /// <param name="Maximized">Fenster war maximiert.</param>
+    private readonly record struct LayoutEntry(string MonitorId, bool Maximized);
 
     /// <summary>Letzter normaler Zustand eines geschlossenen Fensters (je Programm und Fensterklasse).</summary>
     private sealed record ClosedWindow(string MonitorId, string MonitorName, Rectangle Frame, Rectangle WorkArea, double Scale);
@@ -364,7 +365,7 @@ internal sealed class WindowTracker : IDisposable
         {
             tw = GetOrAdd(hwnd, trigger == Trigger.Snapshot ? DateTime.MinValue : now, snap);
             tw.Record(monitor, snap.FrameRect);
-            RememberLayout(tw, monitor, snap.FrameRect, maximized: false);
+            RememberLayout(tw, monitor, maximized: false);
             if (trigger != Trigger.Snapshot) ScheduleReopenCheck(hwnd, tw, now);
             return;
         }
@@ -379,7 +380,7 @@ internal sealed class WindowTracker : IDisposable
         if (!monitorChanged || trigger is Trigger.Snapshot or Trigger.Shown or Trigger.Foreground)
         {
             tw.Record(monitor, snap.FrameRect);
-            RememberLayout(tw, monitor, snap.FrameRect, maximized: false);
+            RememberLayout(tw, monitor, maximized: false);
             return;
         }
 
@@ -392,7 +393,7 @@ internal sealed class WindowTracker : IDisposable
 
         var previous = new MonitorChange(tw.MonitorName, tw.WorkArea, tw.Frame, tw.Scale);
         tw.Record(monitor, snap.FrameRect);
-        RememberLayout(tw, monitor, snap.FrameRect, maximized: false);
+        RememberLayout(tw, monitor, maximized: false);
 
         if (blocked != null)
         {
@@ -410,33 +411,34 @@ internal sealed class WindowTracker : IDisposable
         bool byDrag, TrackedWindow tw, string note = "")
     {
         bool keepPosition = byDrag && _settings.KeepDropPositionOnDrag;
-        Rectangle targetFrame;
-        string how;
-
-        FixedRule? rule = _settings.Mode == ResizeMode.FixedRules
-            ? RuleMatcher.Find(_settings.Rules, window.ProcessName, target)
-            : null;
-
-        if (rule != null)
-        {
-            targetFrame = SizeCalculator.FromRule(rule, previous.OldWorkArea, previous.OldFrame, target.WorkArea,
-                window.FrameRect, keepPosition);
-            how = $"Regel {rule.Width:0.#} × {rule.Height:0.#} {rule.UnitText}";
-        }
-        else if (_settings.Mode == ResizeMode.Percent || _settings.PercentFallbackWithoutRule)
-        {
-            targetFrame = SizeCalculator.Percent(previous.OldWorkArea, previous.OldFrame, target.WorkArea,
-                window.FrameRect, keepPosition, _settings.PercentHeightScaling / 100.0, previous.OldScale, target.Scale,
-                _settings.PercentKeepAspectRatio);
-            how = _settings.Mode == ResizeMode.Percent ? "prozentual" : "prozentual, keine Regel";
-        }
-        else
+        if (TargetFrame(window, previous, target, keepPosition) is not (Rectangle targetFrame, string how))
         {
             Log.Info($"{window.Describe()}: keine Regel für {target.DisplayName} – unverändert");
             return;
         }
 
         Apply(window, targetFrame, $"{previous.OldMonitorName} → {target.DisplayName}{note}", how, target, tw);
+    }
+
+    /// <summary>Zielrahmen auf <paramref name="target"/> ausgehend vom vorherigen Zustand; null = keine passende Regel.</summary>
+    private (Rectangle Frame, string How)? TargetFrame(WindowSnapshot window, MonitorChange previous,
+        MonitorDescriptor target, bool keepPosition)
+    {
+        FixedRule? rule = _settings.Mode == ResizeMode.FixedRules
+            ? RuleMatcher.Find(_settings.Rules, window.ProcessName, target)
+            : null;
+
+        if (rule != null)
+            return (SizeCalculator.FromRule(rule, previous.OldWorkArea, previous.OldFrame, target.WorkArea,
+                window.FrameRect, keepPosition), $"Regel {rule.Width:0.#} × {rule.Height:0.#} {rule.UnitText}");
+
+        if (_settings.Mode == ResizeMode.Percent || _settings.PercentFallbackWithoutRule)
+            return (SizeCalculator.Percent(previous.OldWorkArea, previous.OldFrame, target.WorkArea,
+                    window.FrameRect, keepPosition, _settings.PercentHeightScaling / 100.0, previous.OldScale, target.Scale,
+                    _settings.PercentKeepAspectRatio),
+                _settings.Mode == ResizeMode.Percent ? "prozentual" : "prozentual, keine Regel");
+
+        return null;
     }
 
     /// <summary>
@@ -491,6 +493,11 @@ internal sealed class WindowTracker : IDisposable
         string sizes = $"{window.FrameRect.Width}×{window.FrameRect.Height} → {targetFrame.Width}×{targetFrame.Height}";
         if (targetFrame == window.FrameRect)
         {
+            if (tw != null)
+            {
+                tw.Record(monitor, targetFrame);
+                RememberLayout(tw, monitor, maximized: false);
+            }
             Log.Info($"{window.Describe()}: {context}; Größe passt bereits ({how})");
             return;
         }
@@ -503,7 +510,7 @@ internal sealed class WindowTracker : IDisposable
             if (result.Outcome is MoveOutcome.Ok or MoveOutcome.Partial)
             {
                 tw.Record(monitor, result.ActualFrame);
-                RememberLayout(tw, monitor, result.ActualFrame, maximized: false);
+                RememberLayout(tw, monitor, maximized: false);
             }
         }
 
@@ -539,7 +546,7 @@ internal sealed class WindowTracker : IDisposable
                 // Umräumen Fenster auf volle Höhe, das ist kein Andocken durch den Benutzer.
                 if (!Frozen) tw.Record(monitor, frame: null);
                 // Maximierte Fenster: Monitor je Konstellation merken (angedockte/aufgezogene nicht – die ordnet Windows).
-                if (reason == SkipReason.Maximized) RememberLayout(tw, monitor, tw.Frame, maximized: true);
+                if (reason == SkipReason.Maximized) RememberLayout(tw, monitor, maximized: true);
             }
         }
 
@@ -781,13 +788,13 @@ internal sealed class WindowTracker : IDisposable
                     return true;
                 }
                 tw.Record(monitor, snap.FrameRect);
-                RememberLayout(tw, monitor, snap.FrameRect, maximized: false);
+                RememberLayout(tw, monitor, maximized: false);
                 return false;
             }
 
             var previous = new MonitorChange(tw.MonitorName, tw.WorkArea, tw.Frame, tw.Scale);
             tw.Record(monitor, snap.FrameRect);
-            RememberLayout(tw, monitor, snap.FrameRect, maximized: false);
+            RememberLayout(tw, monitor, maximized: false);
             if (!adjust) return false;
 
             OnMonitorChanged(snap, previous, monitor, byDrag: false, tw);
@@ -802,7 +809,8 @@ internal sealed class WindowTracker : IDisposable
 
     /// <summary>
     /// Stellt die gemerkte Anordnung für die aktuelle Monitorkonstellation wieder her.
-    /// Normale Fenster: Monitor, Position und Größe. Maximierte Fenster: nur der Monitor (bleiben maximiert).
+    /// Gemerkt ist nur der Monitor: Normale Fenster werden dorthin umgerechnet (vom letzten nicht-maximierten Zustand aus),
+    /// maximierte bleiben maximiert.
     /// Rückgabe true = für diese Konstellation ist eine Anordnung bekannt (das Fenster ist damit erledigt);
     /// <paramref name="restored"/> = es wurde tatsächlich verschoben.
     /// </summary>
@@ -821,9 +829,11 @@ internal sealed class WindowTracker : IDisposable
         {
             if (sameMonitor) return true;
 
-            // Wiederherstellungsrechteck auf dem Zielmonitor, damit das Fenster dort maximiert wird.
+            // Wiederherstellungsrechteck auf dem Zielmonitor, damit das Fenster dort maximiert wird – umgerechnet vom
+            // letzten nicht-maximierten Zustand, damit es beim Verkleinern schon passt.
             Rectangle normal = tw.HasNormalFrame
-                ? SizeCalculator.Percent(tw.WorkArea, tw.Frame, target.WorkArea, tw.Frame, keepCurrentPosition: false)
+                ? SizeCalculator.Percent(tw.WorkArea, tw.Frame, target.WorkArea, tw.Frame, keepCurrentPosition: false,
+                    _settings.PercentHeightScaling / 100.0, tw.Scale, target.Scale, _settings.PercentKeepAspectRatio)
                 : Rectangle.Inflate(target.WorkArea, -target.WorkArea.Width / 8, -target.WorkArea.Height / 8);
 
             tw.SuppressUntil = DateTime.UtcNow + TimeSpan.FromSeconds(2);
@@ -831,7 +841,7 @@ internal sealed class WindowTracker : IDisposable
             if (restored)
             {
                 tw.Record(target, normal);
-                RememberLayout(tw, target, normal, maximized: true);
+                RememberLayout(tw, target, maximized: true);
                 Log.Info($"{snap.Describe()}: Anordnung wiederhergestellt – maximiert auf {target.DisplayName} (bekannte Monitorkonstellation)");
             }
             else
@@ -844,16 +854,20 @@ internal sealed class WindowTracker : IDisposable
         // Normales Fenster: angedockte/Vollbild-Fenster nicht anfassen (volle Höhe nur, wenn nicht erst Windows gestaucht hat).
         if (WindowInspector.IsFullScreen(snap, current.Bounds) || (IsFullHeight(snap, current) && !tw.WasNormal)) return false;
 
-        // Exakt die gemerkte Position – hat sich der Arbeitsbereich geändert (z. B. Auflösung), prozentual umgerechnet.
-        var targetFrame = SizeCalculator.Percent(entry.WorkArea, entry.Frame, target.WorkArea, snap.FrameRect, keepCurrentPosition: false);
+        // Gemerkt ist nur der Monitor. Größe und Position werden wie bei jedem Monitorwechsel vom letzten
+        // nicht-maximierten Zustand aus umgerechnet – Änderungen auf dem anderen Monitor bleiben so erhalten.
+        if (!tw.HasNormalFrame) return false;
+        var previous = new MonitorChange(tw.MonitorName, tw.WorkArea, tw.Frame, tw.Scale);
+        if (TargetFrame(snap, previous, target, keepPosition: false) is not (Rectangle targetFrame, string how)) return false;
         if (sameMonitor && targetFrame == snap.FrameRect)
         {
             tw.Record(current, snap.FrameRect);
-            RememberLayout(tw, current, snap.FrameRect, maximized: false);
+            RememberLayout(tw, current, maximized: false);
             return true;
         }
 
-        Apply(snap, targetFrame, $"Anordnung wiederhergestellt → {target.DisplayName}", "bekannte Monitorkonstellation", target, tw);
+        Apply(snap, targetFrame, $"{previous.OldMonitorName} → {target.DisplayName} (gemerkter Monitor dieser Konstellation)",
+            how, target, tw);
         restored = true;
         return true;
     }
@@ -863,13 +877,13 @@ internal sealed class WindowTracker : IDisposable
         string.Join("|", _monitors.GetAll().Select(m => m.Key).OrderBy(id => id, StringComparer.OrdinalIgnoreCase));
 
     /// <summary>Merkt sich die Anordnung des Fensters für die aktuelle Monitorkonstellation (nicht während einer Anzeigeänderung).</summary>
-    private void RememberLayout(TrackedWindow tw, MonitorDescriptor monitor, Rectangle frame, bool maximized)
+    private void RememberLayout(TrackedWindow tw, MonitorDescriptor monitor, bool maximized)
     {
         if (!_settings.RestoreLayoutPerConfiguration || Frozen) return;
         string key = CurrentConfigKey();
         // Nur merken, wenn der Monitor zur ermittelten Konstellation gehört (Schutz vor Momentaufnahmen mitten im Umbau).
         if (!key.Split('|').Contains(monitor.Key, StringComparer.OrdinalIgnoreCase)) return;
-        tw.Layouts[key] = new LayoutEntry(monitor.Key, monitor.DisplayName, frame, monitor.WorkArea, maximized);
+        tw.Layouts[key] = new LayoutEntry(monitor.Key, maximized);
     }
 
     private void RemoveDeadWindows()
