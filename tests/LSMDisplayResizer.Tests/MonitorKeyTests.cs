@@ -13,6 +13,18 @@ public class ReopenSizeTests
     public void SizeMatches(int w, int h, int rw, int rh, double ratio, bool expected) =>
         Assert.Equal(expected, LSMDisplayResizer.Tracking.WindowTracker.SizeMatches(
             new System.Drawing.Size(w, h), new System.Drawing.Size(rw, rh), ratio));
+
+    [Theory]
+    // WinBox: auf dem Notebook (175 %) 2383×1334 geschlossen, auf der Dell-Hälfte (1720×1392) mit der alten
+    // Pixelgröße geöffnet – Breite auf den Bildschirm begrenzt (1722 inkl. Rahmen), Höhe fast gleich.
+    [InlineData(1722, 1310, 2383, 1334, 1720, 1392, true)]
+    [InlineData(1720, 1392, 2383, 1500, 1720, 1392, true)]   // beide Seiten begrenzt
+    [InlineData(1722, 900, 2383, 1334, 1720, 1392, false)]   // Höhe passt nicht
+    [InlineData(1722, 1310, 1500, 1310, 1720, 1392, false)]  // füllt die Breite, war aber schmaler
+    public void SizeMatches_LimitedToWorkArea(int w, int h, int rw, int rh, int ww, int wh, bool expected) =>
+        Assert.Equal(expected, LSMDisplayResizer.Tracking.WindowTracker.SizeMatches(
+            new System.Drawing.Size(w, h), new System.Drawing.Size(rw, rh), 1.0 / 1.75,
+            new System.Drawing.Size(ww, wh)));
 }
 
 public class MonitorKeyTests

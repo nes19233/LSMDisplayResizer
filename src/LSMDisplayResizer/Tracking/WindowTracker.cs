@@ -612,10 +612,15 @@ internal sealed class WindowTracker : IDisposable
                 return;
             }
 
-            if (!SizeMatches(snap.FrameRect.Size, closed.Frame.Size, closed.Scale > 0 ? monitor.Scale / closed.Scale : 1.0))
+            if (!SizeMatches(snap.FrameRect.Size, closed.Frame.Size, closed.Scale > 0 ? monitor.Scale / closed.Scale : 1.0,
+                    monitor.WorkArea.Size))
             {
                 Log.Debug($"{snap.Describe()}: neu geöffnet auf {monitor.DisplayName}, Größe {snap.FrameRect.Width}×{snap.FrameRect.Height} " +
-                          $"passt nicht zum geschlossenen Fenster ({closed.Frame.Width}×{closed.Frame.Height}) – unverändert");
+                          $"passt nicht zum geschlossenen Fenster ({closed.Frame.Width}×{closed.Frame.Height})");
+                // Ragt es trotzdem über den Bildschirm hinaus, wenigstens in den Arbeitsbereich holen.
+                var fitted = SizeCalculator.ClampToWorkArea(snap.FrameRect, monitor.WorkArea);
+                if (fitted != snap.FrameRect)
+                    Apply(snap, fitted, $"neu geöffnet auf {monitor.DisplayName}", "in den Arbeitsbereich eingepasst", monitor, tw);
                 return;
             }
 
@@ -630,13 +635,20 @@ internal sealed class WindowTracker : IDisposable
 
     /// <summary>
     /// Hat das Programm die alte Größe wiederhergestellt? Gleiche Pixelgröße oder – bei Programmen, die ihre Größe in
-    /// logischen Einheiten speichern – um das Skalierungsverhältnis umgerechnet. Toleranz 2 % (mindestens 8 px).
+    /// logischen Einheiten speichern – um das Skalierungsverhältnis umgerechnet. Toleranz 3 % (mindestens 16 px) – die Titelleiste ist bei anderer Skalierung unterschiedlich hoch.
+    /// Ist die alte Größe größer als der Bildschirm, begrenzen Programm oder Windows sie meist auf den Arbeitsbereich
+    /// (WinBox: 2381 px breit gespeichert, auf 1720 px geöffnet) – eine so begrenzte Seite zählt ebenfalls als passend.
     /// </summary>
-    internal static bool SizeMatches(Size actual, Size remembered, double scaleRatio)
+    internal static bool SizeMatches(Size actual, Size remembered, double scaleRatio, Size workArea = default)
     {
-        static bool Close(int a, double b) => Math.Abs(a - b) <= Math.Max(8, b * 0.02);
-        return (Close(actual.Width, remembered.Width) && Close(actual.Height, remembered.Height)) ||
-               (Close(actual.Width, remembered.Width * scaleRatio) && Close(actual.Height, remembered.Height * scaleRatio));
+        static double Tol(double v) => Math.Max(16, v * 0.03);
+        static bool Close(int a, double b) => Math.Abs(a - b) <= Tol(b);
+        // Begrenzt: füllt den Arbeitsbereich (Rahmen darf etwas überstehen) und die alte Größe war mindestens so groß.
+        static bool Limited(int a, double b, int work) => work > 0 && a >= work - Tol(work) && b >= a - Tol(a);
+        static bool Side(int a, double b, int work) => Close(a, b) || Limited(a, b, work);
+        static bool Matches(Size a, Size r, double f, Size work) =>
+            Side(a.Width, r.Width * f, work.Width) && Side(a.Height, r.Height * f, work.Height);
+        return Matches(actual, remembered, 1.0, workArea) || Matches(actual, remembered, scaleRatio, workArea);
     }
 
     private void SnapshotAllWindows()
