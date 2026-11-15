@@ -21,7 +21,7 @@ oft zu groß oder zu klein und muss jedes Mal von Hand neu aufgezogen werden. LS
 
 | Modus | Verhalten |
 |---|---|
-| **Prozentual** (Standard) | Größe und Position werden relativ zum Arbeitsbereich (Bildschirm ohne Taskleiste) übertragen. Beispiel: 60 % Breite auf Monitor A → 60 % Breite auf Monitor B. Die Höhe skaliert gedämpft mit (einstellbar, Standard 67 %: etwa zwei Drittel der Änderung; hin und zurück ergibt wieder die Ausgangshöhe). |
+| **Prozentual** (Standard) | Größe und Position werden relativ zum Arbeitsbereich (Bildschirm ohne Taskleiste) übertragen, gedämpft (einstellbar, Standard 67 %: etwa zwei Drittel der Änderung; hin und zurück ergibt wieder die Ausgangsgröße). Standardmäßig behält das Fenster dabei sein **Seitenverhältnis** – auch zwischen unterschiedlich geformten Monitoren (z. B. Ultrawide-Hälfte → 16:10-Notebook). Ohne diese Option: 60 % Breite auf Monitor A → 60 % Breite auf Monitor B, nur die Höhe gedämpft. |
 | **Feste Regeln** | Pro Programm (Prozessname) und Monitor wird eine Zielgröße festgelegt, wahlweise in Prozent des Arbeitsbereichs oder in Pixeln. Optional werden Fenster ohne Regel prozentual angepasst. |
 
 Außerdem:

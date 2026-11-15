@@ -5,6 +5,48 @@ namespace LSMDisplayResizer.Tests;
 
 public class SizeCalculatorTests
 {
+    [Fact]
+    public void ScaleUniform_KeepsAspectRatio_WinBoxExample()
+    {
+        // Hälfte eines Dell U3425WE (1720×1392 Arbeitsbereich, 100 %) → Notebook-OLED 2880×1716 bei 175 %
+        var result = SizeCalculator.ScaleUniform(new Size(1535, 842), new Size(1720, 1392), new Size(2880, 1716), 0.67, 1.0, 1.75);
+
+        Assert.Equal(1535.0 / 842, (double)result.Width / result.Height, 2);
+        Assert.InRange(result.Width, 2300, 2400); // statt 2570×1165 ohne festes Seitenverhältnis
+        Assert.InRange(result.Height, 1260, 1320);
+    }
+
+    [Fact]
+    public void ScaleUniform_RoundTripReturnsOriginal()
+    {
+        var a = new Size(1720, 1392);
+        var b = new Size(2880, 1716);
+        var there = SizeCalculator.ScaleUniform(new Size(1200, 800), a, b, 0.67, 1.0, 1.75);
+        var back = SizeCalculator.ScaleUniform(there, b, a, 0.67, 1.75, 1.0);
+
+        Assert.InRange(back.Width, 1198, 1202);
+        Assert.InRange(back.Height, 798, 802);
+    }
+
+    [Fact]
+    public void ScaleUniform_ShrinksToFitWithSameShape()
+    {
+        // Sehr breites Fenster auf einen kleinen Bildschirm: passt nicht → gleichmäßig verkleinert, Form bleibt
+        var result = SizeCalculator.ScaleUniform(new Size(3000, 1000), new Size(3440, 1392), new Size(1280, 984), 1.0);
+
+        Assert.True(result.Width <= 1280 && result.Height <= 984);
+        Assert.Equal(3.0, (double)result.Width / result.Height, 1);
+    }
+
+    [Fact]
+    public void ScaleUniform_FactorZero_KeepsVisibleSize()
+    {
+        // 0 %: sichtbare Größe gleich – bei doppelter Skalierung doppelt so viele Pixel
+        var result = SizeCalculator.ScaleUniform(new Size(800, 600), new Size(1920, 1040), new Size(2880, 1752), 0, 1.0, 2.0);
+
+        Assert.Equal(new Size(1600, 1200), result);
+    }
+
     // Monitor A: Full HD mit Taskleiste unten (Arbeitsbereich 1920×1040)
     private static readonly Rectangle WorkA = new(0, 0, 1920, 1040);
 

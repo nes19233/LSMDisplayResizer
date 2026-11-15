@@ -202,8 +202,11 @@ internal static class English
             "When a window is moved to another monitor, the app adjusts its size. Maximized, minimized and full-screen windows stay unchanged.",
         ["Größe und Position relativ zum Arbeitsbereich (ohne Taskleiste) übertragen – z. B. 60 % Breite auf Monitor A → 60 % Breite auf Monitor B."] =
             "Transfer size and position relative to the work area (without taskbar) – e.g. 60 % width on monitor A → 60 % width on monitor B.",
-        ["100 % = Höhe wächst/schrumpft voll mit dem Arbeitsbereich, 0 % = sichtbare Höhe bleibt gleich. Standard 67 %: Die Höhe passt sich etwa zu zwei Dritteln an. Unterschiedliche Skalierung (z. B. Laptop 200 %, Monitor 100 %) wird berücksichtigt. Die Breite skaliert immer voll."] =
-            "100 % = height grows/shrinks fully with the work area, 0 % = visible height stays the same. Default 67 %: the height adapts by about two thirds. Different display scaling (e.g. laptop 200 %, monitor 100 %) is taken into account. The width always scales fully.",
+        ["100 % = Höhe wächst/schrumpft voll mit dem Arbeitsbereich, 0 % = sichtbare Höhe bleibt gleich. Standard 67 %: Die Höhe passt sich etwa zu zwei Dritteln an. Unterschiedliche Skalierung (z. B. Laptop 200 %, Monitor 100 %) wird berücksichtigt."] =
+            "100 % = height grows/shrinks fully with the work area, 0 % = visible height stays the same. Default 67 %: the height adapts by about two thirds. Different display scaling (e.g. laptop 200 %, monitor 100 %) is taken into account.",
+        ["Seitenverhältnis der Fenster beibehalten"] = "Keep the windows' aspect ratio",
+        ["Breite und Höhe ändern sich gleich stark – das Fenster behält seine Form, auch wenn die Monitore unterschiedlich geformt sind (z. B. fast quadratische Hälfte eines Ultrawide-Monitors → 16:10-Notebook). Der Wert oben gilt dann für die Größe insgesamt. Ohne Häkchen skaliert die Breite voll mit, nur die Höhe gedämpft."] =
+            "Width and height change by the same amount – the window keeps its shape even when the monitors are shaped differently (e.g. the almost square half of an ultrawide monitor → 16:10 laptop). The value above then applies to the size as a whole. Without the check mark the width scales fully and only the height is damped.",
         ["Zielgröße pro Programm und Monitor, siehe Registerkarte „Feste Regeln“."] =
             "Target size per program and monitor, see the “Fixed rules” tab.",
         ["Nur die Größe ändert sich, die linke obere Ecke bleibt, wo das Fenster losgelassen wurde. Bei Win+Umschalt+Pfeil wird die Position immer relativ übertragen."] =

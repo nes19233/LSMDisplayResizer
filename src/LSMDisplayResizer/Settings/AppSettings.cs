@@ -14,6 +14,12 @@ internal sealed class AppSettings
     /// </summary>
     public int PercentHeightScaling { get; set; } = 67;
 
+    /// <summary>
+    /// Prozentual: Seitenverhältnis des Fensters beibehalten – Breite und Höhe ändern sich gleich stark
+    /// (gedämpft mit <see cref="PercentHeightScaling"/>). Bei false: Breite voll proportional, nur die Höhe gedämpft.
+    /// </summary>
+    public bool PercentKeepAspectRatio { get; set; } = true;
+
     /// <summary>Feste Regeln (nur im Modus <see cref="ResizeMode.FixedRules"/>).</summary>
     public List<FixedRule> Rules { get; set; } = [];
 

@@ -426,7 +426,8 @@ internal sealed class WindowTracker : IDisposable
         else if (_settings.Mode == ResizeMode.Percent || _settings.PercentFallbackWithoutRule)
         {
             targetFrame = SizeCalculator.Percent(previous.OldWorkArea, previous.OldFrame, target.WorkArea,
-                window.FrameRect, keepPosition, _settings.PercentHeightScaling / 100.0, previous.OldScale, target.Scale);
+                window.FrameRect, keepPosition, _settings.PercentHeightScaling / 100.0, previous.OldScale, target.Scale,
+                _settings.PercentKeepAspectRatio);
             how = _settings.Mode == ResizeMode.Percent ? "prozentual" : "prozentual, keine Regel";
         }
         else
